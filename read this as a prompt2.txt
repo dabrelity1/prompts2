@@ -1,0 +1,2546 @@
+firstly, the seat is positioned way below where the boat is. instead of using a seat as a teleportation method can't you just do it like plane crazy where the players teleport to the creation instead of the seat?? i dont want the boat to have seats. and secondly, when the game starts, the build and spectate ui doesn't disappear, which obstructs my view, and one other thing, i dont see any big waves incoming, just like i wanted... and i dont think my end game function of water entering the boat is working because i built a raft, with only 2 blocks of height, and water was clearly inside the raft and it didnt kill me or end the game... and also, when i teleport to the lobby the ui disappears again and the timer doesnt start... check the whole code man... 
+
+buildsystem:
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local ServerStorage = game:GetService("ServerStorage")
+local HttpService = game:GetService("HttpService")
+
+-- Create necessary folders and events
+local Events = ReplicatedStorage:FindFirstChild("Events") 
+if not Events then
+	Events = Instance.new("Folder")
+	Events.Name = "Events"
+	Events.Parent = ReplicatedStorage
+end
+
+local BuildEvents = Events:FindFirstChild("BuildEvents")
+if not BuildEvents then
+	BuildEvents = Instance.new("Folder")
+	BuildEvents.Name = "BuildEvents"
+	BuildEvents.Parent = Events
+end
+
+-- Create events for building
+local CreateBuildAreaEvent = BuildEvents:FindFirstChild("CreateBuildAreaEvent") or Instance.new("RemoteEvent")
+CreateBuildAreaEvent.Name = "CreateBuildAreaEvent"
+CreateBuildAreaEvent.Parent = BuildEvents
+
+local PlaceBlockEvent = BuildEvents:FindFirstChild("PlaceBlockEvent") or Instance.new("RemoteEvent")
+PlaceBlockEvent.Name = "PlaceBlockEvent"
+PlaceBlockEvent.Parent = BuildEvents
+
+local RotateBlockEvent = BuildEvents:FindFirstChild("RotateBlockEvent") or Instance.new("RemoteEvent")
+RotateBlockEvent.Name = "RotateBlockEvent"
+RotateBlockEvent.Parent = BuildEvents
+
+local MoveBlockEvent = BuildEvents:FindFirstChild("MoveBlockEvent") or Instance.new("RemoteEvent")
+MoveBlockEvent.Name = "MoveBlockEvent"
+MoveBlockEvent.Parent = BuildEvents
+
+local DeleteBlockEvent = BuildEvents:FindFirstChild("DeleteBlockEvent") or Instance.new("RemoteEvent")
+DeleteBlockEvent.Name = "DeleteBlockEvent"
+DeleteBlockEvent.Parent = BuildEvents
+
+local SaveBoatEvent = BuildEvents:FindFirstChild("SaveBoatEvent") or Instance.new("RemoteEvent")
+SaveBoatEvent.Name = "SaveBoatEvent"
+SaveBoatEvent.Parent = BuildEvents
+
+local LoadBoatEvent = BuildEvents:FindFirstChild("LoadBoatEvent") or Instance.new("RemoteEvent")
+LoadBoatEvent.Name = "LoadBoatEvent"
+LoadBoatEvent.Parent = BuildEvents
+
+-- Create cleanup event if it doesn't exist
+local CleanupBuildAreaEvent = BuildEvents:FindFirstChild("CleanupBuildAreaEvent") or Instance.new("RemoteEvent")
+CleanupBuildAreaEvent.Name = "CleanupBuildAreaEvent"
+CleanupBuildAreaEvent.Parent = BuildEvents
+
+-- Create a module to handle building
+local BuildModule = {}
+
+-- Create tables to store player boats
+local playerBoats = {}
+local selectedBoats = {}
+
+-- Maximum blocks allowed per boat
+local MAX_BLOCKS = 300
+
+-- Function to get a saved boat
+function BuildModule.GetSavedBoat(player, boatName)
+	-- Try to find the boat in ServerStorage
+	local boatStorage = ServerStorage:FindFirstChild("SavedBoats")
+	if not boatStorage then
+		boatStorage = Instance.new("Folder")
+		boatStorage.Name = "SavedBoats"
+		boatStorage.Parent = ServerStorage
+	end
+
+	local playerFolder = boatStorage:FindFirstChild(player.Name)
+	if not playerFolder then
+		return nil
+	end
+
+	local boatValue = playerFolder:FindFirstChild(boatName)
+	if not boatValue or not boatValue:IsA("StringValue") then
+		return nil
+	end
+
+	-- Try to parse the JSON data
+	local success, boatData = pcall(function()
+		return HttpService:JSONDecode(boatValue.Value)
+	end)
+
+	if success then
+		return boatData
+	else
+		warn("Failed to parse boat data for " .. boatName)
+		return nil
+	end
+end
+
+-- Function to clean up any existing build area for a player
+function BuildModule.CleanupBuildArea(player)
+	if playerBoats[player.UserId] then
+		if playerBoats[player.UserId].platform then
+			playerBoats[player.UserId].platform:Destroy()
+		end
+		if playerBoats[player.UserId].model then
+			playerBoats[player.UserId].model:Destroy()
+		end
+		playerBoats[player.UserId] = nil
+	end
+end
+
+-- Function to create a new building area for a player
+function BuildModule.CreateBuildArea(player)
+	-- Clean up any existing build area first
+	BuildModule.CleanupBuildArea(player)
+
+	-- Create a new model for the player's boat
+	local boatModel = Instance.new("Model")
+	boatModel.Name = player.Name .. "'s Boat"
+	boatModel.Parent = workspace
+
+	-- Create a base platform for building
+	local buildPlatform = Instance.new("Part")
+	buildPlatform.Size = Vector3.new(50, 1, 50)
+	buildPlatform.Anchored = true
+	buildPlatform.CFrame = CFrame.new(0, 10, 0) -- Adjust position as needed
+	buildPlatform.Name = "BuildPlatform"
+	buildPlatform.Parent = workspace
+
+	-- Create grid lines (visual aid for building)
+	for i = -25, 25, 1 do
+		local xLine = Instance.new("Part")
+		xLine.Size = Vector3.new(50, 0.05, 0.05)
+		xLine.CFrame = CFrame.new(0, 10.1, i)
+		xLine.Anchored = true
+		xLine.CanCollide = false
+		xLine.Transparency = 0.7
+		xLine.Name = "GridLineX"
+		xLine.Parent = buildPlatform
+
+		local zLine = Instance.new("Part")
+		zLine.Size = Vector3.new(0.05, 0.05, 50)
+		zLine.CFrame = CFrame.new(i, 10.1, 0)
+		zLine.Anchored = true
+		zLine.CanCollide = false
+		zLine.Transparency = 0.7
+		zLine.Name = "GridLineZ"
+		zLine.Parent = buildPlatform
+	end
+
+	playerBoats[player.UserId] = {
+		model = boatModel,
+		platform = buildPlatform,
+		blocks = {},
+		blockCount = 0
+	}
+
+	print("Created build area for " .. player.Name)
+	return buildPlatform
+end
+
+-- Function to place a block
+function BuildModule.PlaceBlock(player, blockType, position, rotation)
+	local playerBoat = playerBoats[player.UserId]
+
+	if not playerBoat then
+		print("No build area for " .. player.Name)
+		return
+	end
+
+	if playerBoat.blockCount >= MAX_BLOCKS then
+		-- Send notification to player they've reached max blocks
+		print(player.Name .. " reached maximum block count")
+		return
+	end
+
+	-- Create the block
+	local block = Instance.new("Part")
+	block.Size = Vector3.new(2, 2, 2) -- Standard block size
+
+	-- If rotation wasn't provided, use default rotation
+	if not rotation then
+		rotation = CFrame.Angles(0, 0, 0)
+	end
+
+	block.CFrame = CFrame.new(position) * rotation
+	block.Anchored = true
+	block.Name = "BoatBlock_" .. playerBoat.blockCount
+
+	-- Set block properties based on type
+	if blockType == "Plastic" or blockType == "Standard" then
+		block.BrickColor = BrickColor.new("Bright blue")
+	elseif blockType == "Wood" then
+		block.BrickColor = BrickColor.new("Brown")
+	elseif blockType == "Metal" then
+		block.BrickColor = BrickColor.new("Medium stone grey")
+	end
+
+	block.Parent = playerBoat.model
+
+	playerBoat.blockCount = playerBoat.blockCount + 1
+	playerBoat.blocks[block.Name] = block
+
+	print("Placed block for " .. player.Name .. " at " .. tostring(position))
+	return block
+end
+
+-- Function to rotate a block
+function BuildModule.RotateBlock(player, blockName, rotation)
+	local playerBoat = playerBoats[player.UserId]
+	if not playerBoat or not playerBoat.blocks[blockName] then return end
+
+	local block = playerBoat.blocks[blockName]
+	block.CFrame = block.CFrame * rotation
+end
+
+-- Function to move a block
+function BuildModule.MoveBlock(player, blockName, newPosition)
+	local playerBoat = playerBoats[player.UserId]
+	if not playerBoat or not playerBoat.blocks[blockName] then return end
+
+	local block = playerBoat.blocks[blockName]
+	local currentRotation = block.CFrame - block.CFrame.Position
+	block.CFrame = CFrame.new(newPosition) * currentRotation
+end
+
+-- Function to delete a block
+function BuildModule.DeleteBlock(player, blockName)
+	local playerBoat = playerBoats[player.UserId]
+	if not playerBoat or not playerBoat.blocks[blockName] then return end
+
+	playerBoat.blocks[blockName]:Destroy()
+	playerBoat.blocks[blockName] = nil
+	playerBoat.blockCount = playerBoat.blockCount - 1
+end
+
+-- Function to save a boat design
+function BuildModule.SaveBoat(player, boatName)
+	local playerBoat = playerBoats[player.UserId]
+	if not playerBoat then return end
+
+	-- Store in ServerStorage instead of just memory
+	local boatStorage = ServerStorage:FindFirstChild("SavedBoats")
+	if not boatStorage then
+		boatStorage = Instance.new("Folder")
+		boatStorage.Name = "SavedBoats"
+		boatStorage.Parent = ServerStorage
+	end
+
+	local playerFolder = boatStorage:FindFirstChild(player.Name)
+	if not playerFolder then
+		playerFolder = Instance.new("Folder")
+		playerFolder.Name = player.Name
+		playerFolder.Parent = boatStorage
+	end
+
+	-- Create a serializable representation of the boat
+	local boatData = {
+		name = boatName,
+		blocks = {}
+	}
+
+	for name, block in pairs(playerBoat.blocks) do
+		table.insert(boatData.blocks, {
+			position = {block.Position.X, block.Position.Y, block.Position.Z},
+			rotation = {
+				block.CFrame:ToEulerAnglesXYZ()
+			},
+			size = {block.Size.X, block.Size.Y, block.Size.Z},
+			color = {block.Color.R, block.Color.G, block.Color.B}
+		})
+	end
+
+	-- Store the boat data as a StringValue with JSON
+	local boatValue = playerFolder:FindFirstChild(boatName)
+	if not boatValue then
+		boatValue = Instance.new("StringValue")
+		boatValue.Name = boatName
+		boatValue.Parent = playerFolder
+	end
+
+	-- Convert to JSON and store
+	boatValue.Value = HttpService:JSONEncode(boatData)
+
+	print("Saved boat: " .. boatName .. " for player: " .. player.Name)
+
+	-- Clear the build area
+	for _, block in pairs(playerBoat.blocks) do
+		block:Destroy()
+	end
+
+	playerBoat.blocks = {}
+	playerBoat.blockCount = 0
+
+	return boatData
+end
+
+-- Function to load a boat design
+function BuildModule.LoadBoat(player, boatData)
+	local playerBoat = playerBoats[player.UserId]
+	if not playerBoat then
+		-- Create a build area if one doesn't exist
+		BuildModule.CreateBuildArea(player)
+		playerBoat = playerBoats[player.UserId]
+		if not playerBoat then
+			return false
+		end
+	end
+
+	-- Clear existing boat
+	for _, block in pairs(playerBoat.blocks) do
+		block:Destroy()
+	end
+
+	playerBoat.blocks = {}
+	playerBoat.blockCount = 0
+
+	-- Recreate the boat from saved data
+	for _, blockData in ipairs(boatData.blocks) do
+		local block = Instance.new("Part")
+		block.Size = Vector3.new(
+			blockData.size[1], 
+			blockData.size[2], 
+			blockData.size[3]
+		)
+
+		block.Position = Vector3.new(
+			blockData.position[1],
+			blockData.position[2],
+			blockData.position[3]
+		)
+
+		block.CFrame = CFrame.new(block.Position) * 
+			CFrame.fromEulerAnglesXYZ(
+				blockData.rotation[1],
+				blockData.rotation[2],
+				blockData.rotation[3]
+			)
+
+		block.Color = Color3.new(
+			blockData.color[1],
+			blockData.color[2],
+			blockData.color[3]
+		)
+
+		block.Anchored = true
+		block.Name = "BoatBlock_" .. playerBoat.blockCount
+		block.Parent = playerBoat.model
+
+		playerBoat.blocks[block.Name] = block
+		playerBoat.blockCount = playerBoat.blockCount + 1
+	end
+
+	selectedBoats[player.UserId] = boatData
+	return true
+end
+
+-- Function to spawn the boat in the sea
+-- Function to spawn the boat in the sea
+function BuildModule.SpawnBoatInSea(player)
+	print("Attempting to spawn boat for " .. player.Name)
+
+	-- Clean up any build area first
+	BuildModule.CleanupBuildArea(player)
+
+	-- Get the selected boat name from _G
+	local selectedBoatName = nil
+	if _G.selectedBoats and _G.selectedBoats[player.UserId] then
+		selectedBoatName = _G.selectedBoats[player.UserId]
+		print("Found selected boat name: " .. tostring(selectedBoatName))
+	end
+
+	-- Load the boat data from the name
+	local boatData = nil
+	if selectedBoatName and type(selectedBoatName) == "string" then
+		boatData = BuildModule.GetSavedBoat(player, selectedBoatName)
+		if boatData then
+			print("Successfully loaded boat data for: " .. selectedBoatName)
+		else
+			print("Failed to load boat data for: " .. selectedBoatName)
+		end
+	end
+
+	-- If no valid boat data, create a default boat
+	if not boatData or not boatData.blocks or #boatData.blocks == 0 then
+		print("Creating default boat for " .. player.Name)
+		boatData = {
+			name = "Default Boat",
+			blocks = {
+				{
+					position = {0, 0, 0},
+					rotation = {0, 0, 0},
+					size = {4, 1, 4},
+					color = {0, 0.5, 1}
+				}
+			}
+		}
+	end
+
+	-- Create a new model for the player's boat
+	local boatModel = Instance.new("Model")
+	boatModel.Name = player.Name .. "'s Boat"
+
+	-- Get the sea spawn location
+	local seaSpawn = workspace:FindFirstChild("SeaSpawnLocation")
+	if not seaSpawn then
+		seaSpawn = Instance.new("Part")
+		seaSpawn.Name = "SeaSpawnLocation"
+		seaSpawn.Position = Vector3.new(248, -4, 40) -- Your exact sea coordinates
+		seaSpawn.Size = Vector3.new(10, 1, 10)
+		seaSpawn.Anchored = true
+		seaSpawn.CanCollide = false
+		seaSpawn.Transparency = 0.5 -- Make visible for debugging
+		seaSpawn.Parent = workspace
+	else
+		-- Ensure correct position even if it exists
+		seaSpawn.Position = Vector3.new(248, -4, 40)
+	end
+
+	print("Using sea spawn at " .. tostring(seaSpawn.Position))
+
+	-- Create the driver seat at the sea location
+	local seat = Instance.new("Seat")
+	seat.Size = Vector3.new(2, 1, 2)
+	seat.Position = Vector3.new(seaSpawn.Position.X, seaSpawn.Position.Y + 2, seaSpawn.Position.Z)
+	seat.Anchored = false
+	seat.CanCollide = true
+	seat.Name = "DriverSeat"
+	seat.Transparency = 1 -- Make it mostly transparent
+	seat.BrickColor = BrickColor.new("Bright blue") -- Match common boat color
+	seat.Parent = boatModel
+
+	-- Make the seat the primary part
+	boatModel.PrimaryPart = seat
+
+	-- Create boat blocks around the seat
+	local blockCount = 0
+	for _, blockData in ipairs(boatData.blocks) do
+		local block = Instance.new("Part")
+		block.Size = Vector3.new(
+			blockData.size[1], 
+			blockData.size[2], 
+			blockData.size[3]
+		)
+
+		-- Position relative to the seat at sea location
+		local relativePos = Vector3.new(
+			blockData.position[1],
+			blockData.position[2] - 10, -- Adjust Y to account for build platform height 
+			blockData.position[3]
+		)
+
+		block.Position = seat.Position + relativePos
+
+		-- Apply rotation
+		block.CFrame = CFrame.new(block.Position) * 
+			CFrame.fromEulerAnglesXYZ(
+				blockData.rotation[1],
+				blockData.rotation[2],
+				blockData.rotation[3]
+			)
+
+		block.Color = Color3.new(
+			blockData.color[1],
+			blockData.color[2],
+			blockData.color[3]
+		)
+
+		block.Anchored = false
+		block.CanCollide = true
+		block.Name = "BoatBlock_" .. blockCount
+		block.Parent = boatModel
+		blockCount = blockCount + 1
+	end
+
+	-- Add the boat to workspace before welding
+	boatModel.Parent = workspace
+
+	-- Weld all blocks to the seat
+	for _, part in pairs(boatModel:GetChildren()) do
+		if part ~= seat and part:IsA("BasePart") then
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = seat
+			weld.Part1 = part
+			weld.Parent = seat
+		end
+	end
+
+	-- Now we can add water detectors to the boat AFTER it's fully created
+	BuildModule.AddWaterDetectors(boatModel)
+
+	-- Teleport player to the seat
+	if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+		wait(0.5) -- Brief delay to let physics settle
+		print("Teleporting " .. player.Name .. " to boat seat")
+		player.Character:SetPrimaryPartCFrame(CFrame.new(seat.Position + Vector3.new(0, 3, 0)))
+
+		-- Make player sit in the seat
+		local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			wait(0.2)
+			humanoid.Sit = true
+			seat:Sit(humanoid)
+			print("Player seated in boat")
+		end
+	else
+		print("Cannot teleport player - character not found")
+	end
+
+	return boatModel
+end
+
+-- Function to create water detectors for a boat
+function BuildModule.AddWaterDetectors(boatModel)
+	local primaryPart = boatModel.PrimaryPart
+	if not primaryPart then return end
+
+	-- Create a detector in the bottom of the boat
+	local bottomDetector = Instance.new("Part")
+	bottomDetector.Name = "WaterDetector_Bottom"
+	bottomDetector.Size = Vector3.new(2, 0.2, 2)
+	bottomDetector.Position = primaryPart.Position - Vector3.new(0, 1, 0) -- Bottom of boat
+	bottomDetector.Anchored = false
+	bottomDetector.CanCollide = false
+	bottomDetector.Transparency = 1 -- Invisible
+	bottomDetector.Parent = boatModel
+
+	-- Create weld to attach detector to boat
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = primaryPart
+	weld.Part1 = bottomDetector
+	weld.Parent = bottomDetector
+
+	-- Add a StringValue to track water level
+	local waterLevel = Instance.new("NumberValue")
+	waterLevel.Name = "WaterLevel"
+	waterLevel.Value = 0 -- 0 = no water, 100 = full water
+	waterLevel.Parent = boatModel
+
+	return bottomDetector
+end
+
+
+-- Handle create/cleanup build area requests
+CreateBuildAreaEvent.OnServerEvent:Connect(function(player, create)
+	if create == false then
+		print("Cleanup build area request from " .. player.Name)
+		BuildModule.CleanupBuildArea(player)
+	else
+		print("Create build area request from " .. player.Name)
+		BuildModule.CreateBuildArea(player)
+	end
+end)
+
+-- Connect cleanup event
+CleanupBuildAreaEvent.OnServerEvent:Connect(function(player)
+	print("Cleanup build area request from " .. player.Name)
+	BuildModule.CleanupBuildArea(player)
+end)
+
+-- Connect other server events
+PlaceBlockEvent.OnServerEvent:Connect(function(player, blockType, position, rotation)
+	print("Place block request from " .. player.Name)
+	BuildModule.PlaceBlock(player, blockType, position, rotation)
+end)
+
+RotateBlockEvent.OnServerEvent:Connect(function(player, blockName, rotation)
+	BuildModule.RotateBlock(player, blockName, rotation)
+end)
+
+MoveBlockEvent.OnServerEvent:Connect(function(player, blockName, newPosition)
+	BuildModule.MoveBlock(player, blockName, newPosition)
+end)
+
+DeleteBlockEvent.OnServerEvent:Connect(function(player, blockName)
+	BuildModule.DeleteBlock(player, blockName)
+end)
+
+SaveBoatEvent.OnServerEvent:Connect(function(player, boatName)
+	BuildModule.SaveBoat(player, boatName)
+end)
+
+LoadBoatEvent.OnServerEvent:Connect(function(player, boatData)
+	BuildModule.LoadBoat(player, boatData)
+end)
+
+-- When a player leaves, clean up their build area
+Players.PlayerRemoving:Connect(function(player)
+	BuildModule.CleanupBuildArea(player)
+end)
+
+-- This is the single return value required by the module system
+return BuildModule
+
+wavesystem:
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+-- Create wave module
+local WaveModule = {}
+
+-- Constants for wave simulation
+local SEA_LEVEL = 0 -- Y coordinate of sea level
+local MAX_WAVE_HEIGHT = 15 -- Maximum height of big waves
+local NORMAL_WAVE_HEIGHT = 5 -- Normal wave height
+local WAVE_SPEED = 0.5 -- How fast waves move
+local WAVE_FREQUENCY = 0.05 -- How frequently waves occur
+local BIG_WAVE_PROBABILITY = 0.01 -- Probability of a big wave per second
+
+-- Create sea parts
+function WaveModule.CreateSea(size)
+	local sea = Instance.new("Part")
+	sea.Size = Vector3.new(size, 1, size)
+	sea.Anchored = true
+	sea.CanCollide = false
+	sea.CFrame = CFrame.new(0, SEA_LEVEL, 0)
+	sea.Transparency = 0.3
+	sea.Color = Color3.fromRGB(0, 120, 255)
+	sea.Name = "Sea"
+
+	-- Create water effect
+	local seaDecal = Instance.new("Decal")
+	seaDecal.Texture = "rbxassetid://6372755229" -- Water texture
+	seaDecal.Face = Enum.NormalId.Top
+	seaDecal.Transparency = 0.4
+	seaDecal.Parent = sea
+
+	sea.Parent = workspace
+
+	return sea
+end
+
+-- Wave state variables
+local waveTime = 0
+local currentWaves = {}
+local activeBigWave = nil
+
+-- Function to update wave simulation
+function WaveModule.UpdateWaves(deltaTime)
+	waveTime = waveTime + deltaTime
+
+	-- Decide if we should spawn a big wave
+	if not activeBigWave and math.random() < BIG_WAVE_PROBABILITY * deltaTime then
+		activeBigWave = {
+			position = Vector3.new(math.random(-500, 500), 0, -500), -- Start from far away
+			direction = Vector3.new(math.random(-0.5, 0.5), 0, 1).Unit, -- Random angle toward center
+			speed = WAVE_SPEED * 2, -- Big waves move faster
+			height = MAX_WAVE_HEIGHT,
+			width = math.random(100, 300), -- Random width of the big wave
+			lifetime = 0
+		}
+	end
+
+	-- Update big wave if active
+	if activeBigWave then
+		activeBigWave.position = activeBigWave.position + activeBigWave.direction * activeBigWave.speed * deltaTime
+		activeBigWave.lifetime = activeBigWave.lifetime + deltaTime
+
+		-- If the wave has gone past the play area, remove it
+		if activeBigWave.position.Z > 500 then
+			activeBigWave = nil
+		end
+	end
+
+	-- Spawn normal waves randomly
+	if math.random() < WAVE_FREQUENCY * deltaTime then
+		local wave = {
+			position = Vector3.new(math.random(-500, 500), 0, math.random(-500, 500)),
+			radius = 0,
+			maxRadius = math.random(50, 150),
+			height = math.random() * NORMAL_WAVE_HEIGHT,
+			speed = WAVE_SPEED * (0.8 + math.random() * 0.4) -- Slight random speed variation
+		}
+		table.insert(currentWaves, wave)
+	end
+
+	-- Update existing waves
+	for i = #currentWaves, 1, -1 do
+		local wave = currentWaves[i]
+		wave.radius = wave.radius + wave.speed * deltaTime
+
+		-- Remove waves that have expanded past their max radius
+		if wave.radius > wave.maxRadius then
+			table.remove(currentWaves, i)
+		end
+	end
+end
+
+-- Function to get water height at a specific position
+function WaveModule.GetWaterHeightAt(position)
+	local height = SEA_LEVEL
+
+	-- Base water level with basic sine wave
+	height = height + math.sin(waveTime * 0.5 + position.X * 0.01) * 0.5
+	height = height + math.sin(waveTime * 0.3 + position.Z * 0.02) * 0.3
+
+	-- Add height from normal waves
+	for _, wave in ipairs(currentWaves) do
+		local distance = (position - wave.position).Magnitude
+		if distance < wave.radius then
+			-- Waves are highest at their edges
+			local factor = distance / wave.radius
+			local waveEffect = math.sin(factor * math.pi) * wave.height
+			height = height + waveEffect
+		end
+	end
+
+	-- Add height from big wave if active
+	if activeBigWave then
+		-- Calculate distance to the wave front line
+		local waveFrontDirection = activeBigWave.direction
+		local waveFrontNormal = Vector3.new(-waveFrontDirection.Z, 0, waveFrontDirection.X)
+
+		-- Project position onto wave direction
+		local relativePos = position - activeBigWave.position
+		local distanceAlongWave = relativePos:Dot(waveFrontNormal)
+		local distanceToWaveFront = relativePos:Dot(waveFrontDirection)
+
+		-- Check if within the wave width
+		if math.abs(distanceAlongWave) < activeBigWave.width / 2 then
+			-- Wave effect is strongest at the front and dissipates behind
+			local waveDepth = 30 -- How far behind the wave front the effect extends
+			if distanceToWaveFront >= 0 and distanceToWaveFront < waveDepth then
+				local factor = 1 - (distanceToWaveFront / waveDepth)
+				local waveFactor = math.sin(factor * math.pi) * activeBigWave.height
+				height = height + waveFactor
+			end
+		end
+	end
+
+	return height
+end
+
+-- Function to update boat physics based on water
+function WaveModule.UpdateBoatPhysics(boat, deltaTime)
+	if not boat or not boat.PrimaryPart then return end
+
+	-- Find all parts of the boat
+	local boatParts = boat:GetDescendants()
+	local inWater = false
+	local waterVolume = 0
+
+	for _, part in ipairs(boatParts) do
+		if part:IsA("BasePart") then
+			local position = part.Position
+			local waterHeight = WaveModule.GetWaterHeightAt(position)
+
+			-- Check if part is below water level
+			if position.Y < waterHeight then
+				inWater = true
+
+				-- Apply buoyancy force
+				local submergedVolume = part.Size.X * part.Size.Y * part.Size.Z
+				local depth = waterHeight - position.Y
+				local submergeFactor = math.min(depth / part.Size.Y, 1)
+				local buoyancyForce = workspace.Gravity * 1.1 * submergedVolume * submergeFactor
+
+				-- Apply upward force
+				part:ApplyImpulse(Vector3.new(0, buoyancyForce, 0) * deltaTime)
+
+				-- Apply water resistance/drag
+				local velocity = part.Velocity
+				local drag = velocity * -0.1 * submergedVolume * submergeFactor
+				part:ApplyImpulse(drag * deltaTime)
+
+				-- Check for holes (parts named "Hole")
+				if part.Name == "Hole" then
+					waterVolume = waterVolume + (submergeFactor * 0.1) -- Accumulate water based on how deep the hole is
+				end
+			end
+		end
+	end
+
+	-- If the boat has taken on too much water, it starts to sink
+	if waterVolume > 10 then -- Threshold for sinking
+		-- Signal that the boat is sinking
+		-- In a full implementation, you'd fire an event to handle player elimination
+		print("Boat is sinking!")
+
+		-- Make boat parts heavier to simulate sinking
+		for _, part in ipairs(boatParts) do
+			if part:IsA("BasePart") then
+				part.CustomPhysicalProperties = PhysicalProperties.new(
+					part.CustomPhysicalProperties and part.CustomPhysicalProperties.Density * 1.5 or 1.5,
+					part.CustomPhysicalProperties and part.CustomPhysicalProperties.Friction or 0.3,
+					part.CustomPhysicalProperties and part.CustomPhysicalProperties.Elasticity or 0.5,
+					part.CustomPhysicalProperties and part.CustomPhysicalProperties.FrictionWeight or 1,
+					part.CustomPhysicalProperties and part.CustomPhysicalProperties.ElasticityWeight or 1
+				)
+			end
+		end
+	end
+
+	return inWater
+end
+
+-- Set up HeartBeat connection for wave simulation
+RunService.Heartbeat:Connect(function(deltaTime)
+	WaveModule.UpdateWaves(deltaTime)
+
+	-- Update all boats in the game
+	for _, boat in ipairs(workspace:GetChildren()) do
+		if boat:IsA("Model") and boat.Name:match("'s Boat$") then
+			WaveModule.UpdateBoatPhysics(boat, deltaTime)
+		end
+	end
+end)
+
+return WaveModule
+
+gamemanager:
+
+local function setupSeaSpawn()
+	local seaSpawn = workspace:FindFirstChild("SeaSpawnLocation")
+	if not seaSpawn then
+		seaSpawn = Instance.new("Part")
+		seaSpawn.Name = "SeaSpawnLocation"
+		seaSpawn.Position = Vector3.new(248, -4, 40) -- Your exact sea coordinates
+		seaSpawn.Size = Vector3.new(10, 1, 10)
+		seaSpawn.Anchored = true
+		seaSpawn.CanCollide = false
+		seaSpawn.Transparency = 0.7
+		seaSpawn.Parent = workspace
+		print("Created SeaSpawnLocation at: " .. tostring(seaSpawn.Position))
+	else
+		-- Make sure existing spawn is at the right location
+		seaSpawn.Position = Vector3.new(248, -4, 40)
+		print("Using existing SeaSpawnLocation at: " .. tostring(seaSpawn.Position))
+	end
+	return seaSpawn
+end
+
+-- Call this before loading modules
+local seaSpawn = setupSeaSpawn()
+
+-- Initialize global boat selection table
+_G.selectedBoats = {}
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+
+-- Load our modules
+local BuildSystemModule = game:GetService("ReplicatedStorage"):WaitForChild("BuildSystem")
+local BuildSystem = require(BuildSystemModule)
+local WaveSystem = require(game:GetService("ReplicatedStorage").WaveSystem)
+local AFKSystem = require(script.Parent.AFKSystem) -- Use your existing script name
+
+-- Create game events
+local Events = ReplicatedStorage:FindFirstChild("Events") or Instance.new("Folder")
+Events.Name = "Events"
+Events.Parent = ReplicatedStorage
+
+local GameEvents = Events:FindFirstChild("GameEvents") or Instance.new("Folder")
+GameEvents.Name = "GameEvents"
+GameEvents.Parent = Events
+
+-- Create events for game flow
+local StartGameEvent = GameEvents:FindFirstChild("StartGameEvent") or Instance.new("RemoteEvent")
+StartGameEvent.Name = "StartGameEvent"
+StartGameEvent.Parent = GameEvents
+
+local EndGameEvent = GameEvents:FindFirstChild("EndGameEvent") or Instance.new("RemoteEvent")
+EndGameEvent.Name = "EndGameEvent"
+EndGameEvent.Parent = GameEvents
+
+local SpectateEvent = GameEvents:FindFirstChild("SpectateEvent") or Instance.new("RemoteEvent")
+SpectateEvent.Name = "SpectateEvent"
+SpectateEvent.Parent = GameEvents
+
+local LobbyTimerEvent = GameEvents:FindFirstChild("LobbyTimerEvent") or Instance.new("RemoteEvent")
+LobbyTimerEvent.Name = "LobbyTimerEvent"
+LobbyTimerEvent.Parent = GameEvents
+
+local SelectBoatEvent = GameEvents:FindFirstChild("SelectBoatEvent") or Instance.new("RemoteEvent")
+SelectBoatEvent.Name = "SelectBoatEvent"
+SelectBoatEvent.Parent = GameEvents
+
+-- Add in GetSavedBoatsEvent for the boat selection
+local GetSavedBoatsEvent = GameEvents:FindFirstChild("GetSavedBoatsEvent") or Instance.new("RemoteFunction")
+GetSavedBoatsEvent.Name = "GetSavedBoatsEvent"
+GetSavedBoatsEvent.Parent = GameEvents
+
+-- IMPORTANT: Use the global variable for selectedBoats, not a new local one
+local selectedBoats = _G.selectedBoats -- Ensure we use the global reference
+
+-- Create a global storage for saved boats
+local savedBoats = {}
+
+-- Function to handle the GetSavedBoatsEvent
+GetSavedBoatsEvent.OnServerInvoke = function(player)
+	-- Return the player's saved boats
+	local playerBoats = {}
+
+	-- Try to get boats from ServerStorage
+	local boatStorage = ServerStorage:FindFirstChild("SavedBoats")
+	if not boatStorage then
+		boatStorage = Instance.new("Folder")
+		boatStorage.Name = "SavedBoats"
+		boatStorage.Parent = ServerStorage
+		return playerBoats -- Return empty list if no storage yet
+	end
+
+	local playerFolder = boatStorage:FindFirstChild(player.Name)
+	if playerFolder then
+		for _, boat in pairs(playerFolder:GetChildren()) do
+			if boat:IsA("StringValue") then
+				table.insert(playerBoats, boat.Name)
+			end
+		end
+	end
+
+	print("Found " .. #playerBoats .. " boats for " .. player.Name)
+	return playerBoats
+end
+
+-- Create a value to track manual game start
+local startGame = script:FindFirstChild("StartGame") or Instance.new("BoolValue")
+startGame.Name = "StartGame"
+startGame.Value = false
+startGame.Parent = script
+
+-- Game state
+local GameState = {
+	LOBBY = "Lobby",
+	PLAYING = "Playing",
+	ENDED = "Ended"
+}
+
+local currentState = GameState.LOBBY
+local players = {}
+local playersInGame = {}
+local gameTimer = 0
+local GAME_DURATION = 180 -- 3 minutes in seconds
+local LOBBY_DURATION = 30
+
+-- Initialize the sea
+local sea = WaveSystem.CreateSea(1000)
+
+-- Function declarations - define these first
+local function startLobbyCountdown() end -- Forward declaration
+local function startGameplay() end -- Forward declaration
+
+-- Function to handle when a player joins
+local function onPlayerJoin(player)
+	players[player.UserId] = {
+		player = player,
+		state = GameState.LOBBY,
+		boat = nil,
+		eliminated = false,
+		selectedBoat = nil
+	}
+
+	-- Teleport to lobby
+	player.RespawnLocation = workspace:FindFirstChild("SpawnLocation")
+
+	-- Wait for character to load
+	player.CharacterAdded:Connect(function(character)
+		if players[player.UserId].state == GameState.LOBBY then
+			-- Teleport to lobby spawn
+			local lobbySpawn = workspace:FindFirstChild("SpawnLocation")
+			if lobbySpawn then
+				character:SetPrimaryPartCFrame(lobbySpawn.CFrame + Vector3.new(0, 5, 0))
+			end
+		elseif players[player.UserId].state == GameState.PLAYING then
+			-- Teleport to their boat if they have one
+			if players[player.UserId].boat then
+				-- In a real implementation, you'd teleport them to their boat
+				local boat = players[player.UserId].boat
+				if boat.PrimaryPart then
+					character:SetPrimaryPartCFrame(boat.PrimaryPart.CFrame + Vector3.new(0, 5, 0))
+				end
+			else
+				-- If they don't have a boat, they're a spectator
+				players[player.UserId].eliminated = true
+				-- Enable spectator mode
+				SpectateEvent:FireClient(player, true)
+			end
+		end
+	end)
+
+	-- Start lobby timer if we have enough players and not already in a countdown
+	if currentState == GameState.LOBBY then
+		local playerCount = 0
+		for _ in pairs(players) do
+			playerCount = playerCount + 1
+		end
+
+		if playerCount >= 2 then -- Start countdown with at least 2 players
+			startLobbyCountdown()
+		end
+	end
+
+	print("Player joined: " .. player.Name)
+end
+
+-- Function to handle when a player leaves
+local function onPlayerLeaving(player)
+	-- Clean up any resources
+	if players[player.UserId] and players[player.UserId].boat then
+		players[player.UserId].boat:Destroy()
+	end
+
+	players[player.UserId] = nil
+	selectedBoats[player.UserId] = nil
+	print("Player left: " .. player.Name)
+end
+
+-- Function to check for player elimination
+local function checkForElimination(playerData)
+	if playerData.eliminated then return true end
+
+	-- Check if boat is sunk (below sea level)
+	if not playerData.boat or not playerData.boat.PrimaryPart then
+		playerData.eliminated = true
+		return true
+	end
+
+	local boat = playerData.boat
+	if boat.PrimaryPart.Position.Y < -10 then -- Threshold for complete sinking
+		playerData.eliminated = true
+		SpectateEvent:FireClient(playerData.player, true)
+		print("Player eliminated: " .. playerData.player.Name)
+		return true
+	end
+
+	return false
+end
+
+-- Function to end the game
+local function endGame()
+	if currentState ~= GameState.PLAYING then return end
+
+	currentState = GameState.ENDED
+
+	-- Determine survivors
+	local survivors = {}
+	for _, playerData in ipairs(playersInGame) do
+		if not playerData.eliminated then
+			table.insert(survivors, playerData.player.Name)
+		end
+	end
+
+	-- Notify all players game has ended
+	for userId, playerData in pairs(players) do
+		EndGameEvent:FireClient(playerData.player, survivors)
+
+		-- Clean up boats
+		if playerData.boat then
+			playerData.boat:Destroy()
+			playerData.boat = nil
+		end
+
+		-- Reset player state
+		playerData.state = GameState.LOBBY
+		playerData.eliminated = false
+
+		-- Teleport back to lobby
+		if playerData.player.Character then
+			local lobbySpawn = workspace:FindFirstChild("SpawnLocation")
+			if lobbySpawn then
+				playerData.player.Character:SetPrimaryPartCFrame(lobbySpawn.CFrame + Vector3.new(0, 5, 0))
+			end
+		end
+	end
+
+	playersInGame = {}
+	print("Game ended. Survivors: " .. table.concat(survivors, ", "))
+
+	-- Reset game state after a short delay
+	wait(5)
+	currentState = GameState.LOBBY
+
+	-- Reset selected boats for next game
+	for userId, _ in pairs(selectedBoats) do
+		selectedBoats[userId] = nil
+	end
+
+	-- Make sure global table is also reset
+	for userId, _ in pairs(_G.selectedBoats) do
+		_G.selectedBoats[userId] = nil
+	end
+
+	-- Start countdown for next game
+	startLobbyCountdown()
+end
+
+-- Now define the full implementations
+-- Function to start the game
+startGameplay = function()
+	if currentState ~= GameState.LOBBY then return end
+
+	currentState = GameState.PLAYING
+	gameTimer = 0
+	playersInGame = {}
+
+	print("Starting game...")
+
+	-- Setup game for all players that aren't AFK
+	for userId, playerData in pairs(players) do
+		local player = playerData.player
+
+		-- Skip AFK players
+		if AFKSystem.IsPlayerAFK(player) then
+			print(player.Name .. " is AFK and won't participate in this round")
+			continue
+		end
+
+		playerData.state = GameState.PLAYING
+		playerData.eliminated = false
+
+		-- Use selected boat if available
+		if selectedBoats[userId] and selectedBoats[userId] ~= "" then
+			print("Using selected boat name for " .. player.Name .. ": " .. selectedBoats[userId])
+			playerData.selectedBoat = selectedBoats[userId]
+
+			-- Get boat data from storage
+			local boatData = BuildSystem.GetSavedBoat(player, selectedBoats[userId])
+			if boatData then
+				print("Found saved boat data for " .. selectedBoats[userId])
+			else
+				print("No saved boat data found for " .. selectedBoats[userId])
+			end
+		else
+			print("No boat selected for " .. player.Name .. ", using default")
+		end
+
+		-- Spawn player's boat in the sea
+		print("Spawning boat for " .. player.Name)
+		playerData.boat = BuildSystem.SpawnBoatInSea(player)
+
+		-- Add to active players
+		table.insert(playersInGame, playerData)
+
+		-- Notify client that game is starting
+		StartGameEvent:FireClient(player)
+	end
+
+	print("Game started with " .. #playersInGame .. " players")
+end
+
+-- Check if a boat is taking on water
+local function checkForWaterInBoat(playerData)
+	if not playerData.boat or playerData.eliminated then return false end
+
+	local boat = playerData.boat
+	local waterDetector = boat:FindFirstChild("WaterDetector_Bottom")
+	local waterLevel = boat:FindFirstChild("WaterLevel")
+
+	if not waterDetector or not waterLevel then return false end
+
+	-- Check if detector is below water level (Y = -4 for your sea)
+	local seaLevel = -4 -- Your sea's Y coordinate
+
+	if waterDetector.Position.Y <= seaLevel then
+		-- Water is getting in! Increase water level
+		waterLevel.Value = waterLevel.Value + 1
+
+		-- Visual feedback - you could add bubbles or water particles here
+		if waterLevel.Value % 10 == 0 then
+			print("Water level in " .. playerData.player.Name .. "'s boat: " .. waterLevel.Value .. "%")
+		end
+
+		-- Check if boat is sinking (water level too high)
+		if waterLevel.Value >= 100 then
+			-- Boat has filled with water, it's sinking!
+			playerData.eliminated = true
+			SpectateEvent:FireClient(playerData.player, true)
+			print("Player " .. playerData.player.Name .. "'s boat has filled with water!")
+
+			-- Create sinking effect
+			for _, part in pairs(boat:GetChildren()) do
+				if part:IsA("BasePart") and part.Name ~= "WaterDetector_Bottom" then
+					part.Anchored = false
+					part.CanCollide = true
+
+					-- Add slight downward force to simulate sinking
+					local bodyForce = Instance.new("BodyForce")
+					bodyForce.Force = Vector3.new(0, -500, 0)
+					bodyForce.Parent = part
+				end
+			end
+
+			-- Teleport player to lobby after a delay
+			spawn(function()
+				wait(3) -- Let them see the boat sink for 3 seconds
+				if playerData.player.Character then
+					local lobbySpawn = workspace:FindFirstChild("SpawnLocation")
+					if lobbySpawn then
+						playerData.player.Character:SetPrimaryPartCFrame(lobbySpawn.CFrame + Vector3.new(0, 5, 0))
+					end
+				end
+
+				-- Destroy the boat after another delay
+				wait(5)
+				if playerData.boat then
+					playerData.boat:Destroy()
+					playerData.boat = nil
+				end
+			end)
+
+			return true
+		end
+	end
+
+	return false
+end
+
+-- Flag to prevent multiple countdown runs
+local isCountdownRunning = false
+
+-- Function to start the lobby countdown - FIXED
+startLobbyCountdown = function()
+	if currentState ~= GameState.LOBBY or isCountdownRunning then
+		print("Countdown already running or wrong state")
+		return
+	end
+
+	isCountdownRunning = true
+	local countdown = LOBBY_DURATION
+	print("Starting lobby countdown from " .. countdown)
+
+	-- Use a separate thread to prevent yield issues
+	spawn(function()
+		for i = countdown, 0, -1 do
+			-- Update all players with current time
+			for _, playerData in pairs(players) do
+				if playerData.player then
+					LobbyTimerEvent:FireClient(playerData.player, i)
+				end
+			end
+
+			if i <= 0 then
+				break
+			end
+
+			wait(1) -- Wait exactly 1 second
+		end
+
+		-- Only start the game if we're still in lobby state
+		if currentState == GameState.LOBBY then
+			print("Countdown complete, starting game")
+			isCountdownRunning = false
+			startGameplay()
+		else
+			isCountdownRunning = false
+		end
+	end)
+end
+
+-- Function to update the game
+-- Function to update the game
+local function updateGame(deltaTime)
+	if currentState ~= GameState.PLAYING then return end
+
+	gameTimer = gameTimer + deltaTime
+
+	-- Check for eliminated players
+	local remainingPlayers = 0
+	for _, playerData in ipairs(playersInGame) do
+		-- Check for both sinking and water getting in
+		if not checkForElimination(playerData) and not checkForWaterInBoat(playerData) then
+			remainingPlayers = remainingPlayers + 1
+		end
+	end
+
+	-- End the game if time is up or everyone is eliminated
+	if gameTimer >= GAME_DURATION or remainingPlayers == 0 then
+		endGame()
+	end
+end
+
+-- Function to create a hole in a boat
+local function createHoleInBoat(boat, position)
+	if not boat then return end
+
+	-- Find the closest part to the position
+	local closestPart = nil
+	local closestDistance = math.huge
+
+	for _, part in pairs(boat:GetChildren()) do
+		if part:IsA("BasePart") and part.Name ~= "WaterDetector_Bottom" and part.Name ~= "DriverSeat" then
+			local distance = (part.Position - position).Magnitude
+			if distance < closestDistance then
+				closestDistance = distance
+				closestPart = part
+			end
+		end
+	end
+
+	if closestPart then
+		-- Create a hole effect (transparency in the part)
+		local holeDecal = Instance.new("Decal")
+		holeDecal.Name = "Hole"
+		holeDecal.Texture = "rbxassetid://123456789" -- Replace with actual hole texture ID
+		holeDecal.Face = Enum.NormalId.Front
+		holeDecal.Parent = closestPart
+
+		-- Increase water intake rate for this boat
+		local waterLevel = boat:FindFirstChild("WaterLevel")
+		if waterLevel then
+			-- This boat will take on water 3x faster now
+			waterLevel.Value = waterLevel.Value + 10
+		end
+	end
+end
+
+-- Handle boat selection
+SelectBoatEvent.OnServerEvent:Connect(function(player, boatName)
+	if not player or not boatName then return end
+
+	print("Player " .. player.Name .. " selected boat: " .. boatName)
+
+	-- Store the boat name directly, not the data
+	selectedBoats[player.UserId] = boatName
+	_G.selectedBoats[player.UserId] = boatName
+
+	if players[player.UserId] then
+		players[player.UserId].selectedBoat = boatName
+	end
+end)
+
+-- Handle spectate requests
+SpectateEvent.OnServerEvent:Connect(function(player, targetPlayer)
+	if not players[player.UserId] then return end
+
+	if players[player.UserId].state ~= GameState.PLAYING or players[player.UserId].eliminated then
+		-- Allow spectating if the player is eliminated or game hasn't started
+		if targetPlayer then
+			-- Spectate specific player
+			for _, playerData in ipairs(playersInGame) do
+				if playerData.player.Name == targetPlayer and not playerData.eliminated then
+					-- In a real implementation, you'd set up camera to follow target player's boat
+					print(player.Name .. " is spectating " .. targetPlayer)
+					break
+				end
+			end
+		else
+			-- Auto-spectate any remaining player
+			for _, playerData in ipairs(playersInGame) do
+				if not playerData.eliminated then
+					-- In a real implementation, you'd set up camera to follow this player's boat
+					print(player.Name .. " is spectating " .. playerData.player.Name)
+					break
+				end
+			end
+		end
+	end
+end)
+
+-- Set up event handlers
+Players.PlayerAdded:Connect(onPlayerJoin)
+Players.PlayerRemoving:Connect(onPlayerLeaving)
+
+-- Set up game update loop
+game:GetService("RunService").Heartbeat:Connect(updateGame)
+
+-- Handle StartGame value changes (for debug button)
+startGame.Changed:Connect(function()
+	if startGame.Value then
+		startGameplay()
+		-- Reset the value after processing
+		startGame.Value = false
+	end
+end)
+
+-- Remove the old test button if it exists
+for _, child in pairs(workspace:GetChildren()) do
+	if child.Name == "Start Game" and child:IsA("TextButton") then
+		child:Destroy()
+	end
+end
+
+-- Create a proper debug button
+local startButton = workspace:FindFirstChild("StartGameButton")
+if not startButton then
+	startButton = Instance.new("Part")
+	startButton.Name = "StartGameButton"
+	startButton.Size = Vector3.new(4, 2, 4)
+	startButton.Position = Vector3.new(10, 2, 10)
+	startButton.Anchored = true
+	startButton.BrickColor = BrickColor.new("Bright green")
+	startButton.Parent = workspace
+
+	-- Add text label
+	local surfaceGui = Instance.new("SurfaceGui")
+	surfaceGui.Parent = startButton
+
+	local textLabel = Instance.new("TextLabel")
+	textLabel.Size = UDim2.new(1, 0, 1, 0)
+	textLabel.BackgroundTransparency = 1
+	textLabel.TextScaled = true
+	textLabel.Text = "Start Game"
+	textLabel.Font = Enum.Font.SourceSansBold
+	textLabel.TextColor3 = Color3.new(1, 1, 1)
+	textLabel.Parent = surfaceGui
+
+	-- Add clickable functionality
+	local clickDetector = Instance.new("ClickDetector")
+	clickDetector.MaxActivationDistance = 20
+	clickDetector.Parent = startButton
+
+	-- Connect the click detector
+	clickDetector.MouseClick:Connect(function(player)
+		print("Start button clicked by " .. player.Name)
+		startGame.Value = true
+	end)
+end
+
+print("Game Manager initialized")
+
+buildingui:
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local mouse = player:GetMouse()
+
+-- Wait for Events to be created
+local function waitForPath(parent, path)
+	local current = parent
+	for _, name in ipairs(path:split(".")) do
+		current = current:WaitForChild(name)
+	end
+	return current
+end
+
+-- Wait for Remote Events to be created
+local Events = ReplicatedStorage:WaitForChild("Events")
+local BuildEvents = Events:WaitForChild("BuildEvents")
+
+local CreateBuildAreaEvent = BuildEvents:WaitForChild("CreateBuildAreaEvent")
+local PlaceBlockEvent = BuildEvents:WaitForChild("PlaceBlockEvent")
+local RotateBlockEvent = BuildEvents:WaitForChild("RotateBlockEvent")
+local MoveBlockEvent = BuildEvents:WaitForChild("MoveBlockEvent")
+local DeleteBlockEvent = BuildEvents:WaitForChild("DeleteBlockEvent")
+local SaveBoatEvent = BuildEvents:WaitForChild("SaveBoatEvent")
+local LoadBoatEvent = BuildEvents:WaitForChild("LoadBoatEvent")
+
+-- Create main screen GUI if it doesn't exist
+local mainScreenGui = playerGui:FindFirstChild("MainGui")
+if not mainScreenGui then
+	mainScreenGui = Instance.new("ScreenGui")
+	mainScreenGui.Name = "MainGui"
+	mainScreenGui.Parent = playerGui
+end
+
+-- Create building GUI
+local buildScreenGui = Instance.new("ScreenGui")
+buildScreenGui.Name = "BuildingGui"
+buildScreenGui.Enabled = false
+buildScreenGui.Parent = playerGui
+
+-- Create main frame
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 250, 0, 400)
+mainFrame.Position = UDim2.new(0, 10, 0.5, -200)
+mainFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+mainFrame.BorderSizePixel = 0
+mainFrame.Parent = buildScreenGui
+
+-- Create title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 40)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextSize = 24
+titleLabel.Text = "Build Your Boat"
+titleLabel.Parent = mainFrame
+
+-- Create tool buttons
+local toolsFrame = Instance.new("Frame")
+toolsFrame.Size = UDim2.new(1, 0, 0, 60)
+toolsFrame.Position = UDim2.new(0, 0, 0, 50)
+toolsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+toolsFrame.BorderSizePixel = 0
+toolsFrame.Parent = mainFrame
+
+-- Place button
+local placeButton = Instance.new("TextButton")
+placeButton.Size = UDim2.new(0.25, -10, 1, -10)
+placeButton.Position = UDim2.new(0, 5, 0, 5)
+placeButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255) -- Active by default
+placeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+placeButton.Font = Enum.Font.SourceSans
+placeButton.TextSize = 16
+placeButton.Text = "Place"
+placeButton.Parent = toolsFrame
+
+-- Rotate button
+local rotateButton = Instance.new("TextButton")
+rotateButton.Size = UDim2.new(0.25, -10, 1, -10)
+rotateButton.Position = UDim2.new(0.25, 5, 0, 5)
+rotateButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+rotateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+rotateButton.Font = Enum.Font.SourceSans
+rotateButton.TextSize = 16
+rotateButton.Text = "Rotate"
+rotateButton.Parent = toolsFrame
+
+-- Move button
+local moveButton = Instance.new("TextButton")
+moveButton.Size = UDim2.new(0.25, -10, 1, -10)
+moveButton.Position = UDim2.new(0.5, 5, 0, 5)
+moveButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+moveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+moveButton.Font = Enum.Font.SourceSans
+moveButton.TextSize = 16
+moveButton.Text = "Move"
+moveButton.Parent = toolsFrame
+
+-- Delete button
+local deleteButton = Instance.new("TextButton")
+deleteButton.Size = UDim2.new(0.25, -10, 1, -10)
+deleteButton.Position = UDim2.new(0.75, 5, 0, 5)
+deleteButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+deleteButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+deleteButton.Font = Enum.Font.SourceSans
+deleteButton.TextSize = 16
+deleteButton.Text = "Delete"
+deleteButton.Parent = toolsFrame
+
+-- Create block selection
+local blocksFrame = Instance.new("Frame")
+blocksFrame.Size = UDim2.new(1, 0, 0, 200)
+blocksFrame.Position = UDim2.new(0, 0, 0, 120)
+blocksFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+blocksFrame.BorderSizePixel = 0
+blocksFrame.Parent = mainFrame
+
+-- Add plastic block button (only one type for now as requested)
+local blockButton = Instance.new("TextButton")
+blockButton.Size = UDim2.new(1, -10, 0, 40)
+blockButton.Position = UDim2.new(0, 5, 0, 5)
+blockButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255) -- Active by default
+blockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+blockButton.Font = Enum.Font.SourceSans
+blockButton.TextSize = 16
+blockButton.Text = "Plastic Block"
+blockButton.Parent = blocksFrame
+blockButton.Name = "Block_Plastic"
+
+-- Create save/load controls
+local controlsFrame = Instance.new("Frame")
+controlsFrame.Size = UDim2.new(1, 0, 0, 80)
+controlsFrame.Position = UDim2.new(0, 0, 1, -80)
+controlsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+controlsFrame.BorderSizePixel = 0
+controlsFrame.Parent = mainFrame
+
+-- Boat name input
+local boatNameInput = Instance.new("TextBox")
+boatNameInput.Size = UDim2.new(1, -10, 0, 30)
+boatNameInput.Position = UDim2.new(0, 5, 0, 5)
+boatNameInput.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+boatNameInput.TextColor3 = Color3.fromRGB(0, 0, 0)
+boatNameInput.Font = Enum.Font.SourceSans
+boatNameInput.TextSize = 16
+boatNameInput.PlaceholderText = "Boat Name"
+boatNameInput.Parent = controlsFrame
+
+-- Save button
+local saveButton = Instance.new("TextButton")
+saveButton.Size = UDim2.new(0.5, -10, 0, 30)
+saveButton.Position = UDim2.new(0, 5, 0, 40)
+saveButton.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
+saveButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+saveButton.Font = Enum.Font.SourceSansBold
+saveButton.TextSize = 16
+saveButton.Text = "SAVE"
+saveButton.Parent = controlsFrame
+
+-- Exit button
+local exitButton = Instance.new("TextButton")
+exitButton.Size = UDim2.new(0.5, -10, 0, 30)
+exitButton.Position = UDim2.new(0.5, 5, 0, 40)
+exitButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+exitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+exitButton.Font = Enum.Font.SourceSansBold
+exitButton.TextSize = 16
+exitButton.Text = "EXIT"
+exitButton.Parent = controlsFrame
+
+-- Status message
+local statusMessage = Instance.new("TextLabel")
+statusMessage.Size = UDim2.new(1, 0, 0, 30)
+statusMessage.Position = UDim2.new(0, 0, 1, 10)
+statusMessage.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+statusMessage.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusMessage.Font = Enum.Font.SourceSans
+statusMessage.TextSize = 14
+statusMessage.Text = ""
+statusMessage.Parent = mainFrame
+statusMessage.Visible = false
+
+-- Create building camera controls
+local cameraControls = {}
+cameraControls.enabled = false
+cameraControls.cameraType = nil
+cameraControls.cameraSubject = nil
+
+-- Current tool and block selection
+local currentTool = "Place"
+local currentBlock = "Plastic"
+local selectedBlock = nil
+local buildMode = false
+
+-- Preview block (ghost block)
+local previewBlock = nil
+
+-- Function to create a preview block
+local function createPreviewBlock()
+	if previewBlock then previewBlock:Destroy() end
+
+	previewBlock = Instance.new("Part")
+	previewBlock.Size = Vector3.new(2, 2, 2) -- Standard block size
+	previewBlock.Anchored = true
+	previewBlock.CanCollide = false
+	previewBlock.Transparency = 0.5
+	previewBlock.BrickColor = BrickColor.new("Bright blue")
+	previewBlock.Name = "PreviewBlock"
+	previewBlock.Parent = workspace
+end
+
+-- Function to update preview block position
+local function updatePreviewBlock()
+	if not previewBlock or not buildMode or currentTool ~= "Place" then return end
+
+	-- Use raycasting to find a valid position for the block
+	local ray = workspace.CurrentCamera:ScreenPointToRay(mouse.X, mouse.Y)
+	local rayParams = RaycastParams.new()
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+	rayParams.FilterDescendantsInstances = {previewBlock}
+
+	local rayResult = workspace:Raycast(ray.Origin, ray.Direction * 100, rayParams)
+
+	if rayResult then
+		-- Snap to grid (2x2x2 units)
+		local hitPos = rayResult.Position
+		local snappedPos = Vector3.new(
+			math.floor(hitPos.X / 2) * 2 + 1,
+			math.floor(hitPos.Y / 2) * 2 + 1,
+			math.floor(hitPos.Z / 2) * 2 + 1
+		)
+
+		previewBlock.CFrame = CFrame.new(snappedPos)
+		previewBlock.Transparency = 0.5
+	else
+		previewBlock.Transparency = 1
+	end
+end
+
+-- Function to enable building mode
+local function enableBuildMode()
+	if buildMode then return end
+
+	buildMode = true
+
+	-- Store current camera settings
+	cameraControls.cameraType = workspace.CurrentCamera.CameraType
+	cameraControls.cameraSubject = workspace.CurrentCamera.CameraSubject
+
+	-- Set camera for building
+	workspace.CurrentCamera.CameraType = Enum.CameraType.Scriptable
+
+	-- Create a preview block
+	createPreviewBlock()
+
+	-- Show building UI
+	buildScreenGui.Enabled = true
+
+	-- Request the server to create a build area
+	print("Sending CreateBuildAreaEvent")
+	CreateBuildAreaEvent:FireServer()
+
+	-- Display status message
+	statusMessage.Text = "Building mode enabled. Click to place blocks."
+	statusMessage.Visible = true
+	delay(3, function()
+		statusMessage.Visible = false
+	end)
+
+	print("Build mode enabled")
+end
+
+-- Function to disable building mode
+local function disableBuildMode()
+	if not buildMode then return end
+
+	buildMode = false
+
+	-- Restore camera settings
+	workspace.CurrentCamera.CameraType = cameraControls.cameraType
+	workspace.CurrentCamera.CameraSubject = cameraControls.cameraSubject
+
+	-- Remove preview block
+	if previewBlock then
+		previewBlock:Destroy()
+		previewBlock = nil
+	end
+
+	-- IMPORTANT: Tell the server to clean up the build area
+	-- This will remove the platform and grid lines
+	local CleanupBuildAreaEvent = ReplicatedStorage.Events.BuildEvents:FindFirstChild("CleanupBuildAreaEvent")
+	if not CleanupBuildAreaEvent then
+		CleanupBuildAreaEvent = Instance.new("RemoteEvent")
+		CleanupBuildAreaEvent.Name = "CleanupBuildAreaEvent"
+		CleanupBuildAreaEvent.Parent = ReplicatedStorage.Events.BuildEvents
+	end
+	CleanupBuildAreaEvent:FireServer()
+
+	-- Hide building UI
+	buildScreenGui.Enabled = false
+
+	print("Build mode disabled")
+end
+
+-- Function to handle tool selection
+local function selectTool(toolName)
+	currentTool = toolName
+
+	-- Update button appearances
+	placeButton.BackgroundColor3 = (toolName == "Place") 
+		and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(0, 120, 215)
+	rotateButton.BackgroundColor3 = (toolName == "Rotate") 
+		and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(0, 120, 215)
+	moveButton.BackgroundColor3 = (toolName == "Move") 
+		and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(0, 120, 215)
+	deleteButton.BackgroundColor3 = (toolName == "Delete") 
+		and Color3.fromRGB(255, 70, 70) or Color3.fromRGB(231, 76, 60)
+
+	-- Reset preview block
+	if toolName == "Place" then
+		createPreviewBlock()
+	elseif previewBlock then
+		previewBlock:Destroy()
+		previewBlock = nil
+	end
+
+	print("Selected tool: " .. toolName)
+end
+
+-- Function to handle block selection
+local function selectBlock(blockName)
+	currentBlock = blockName
+
+	-- Update button appearances
+	blockButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+
+	print("Selected block: " .. blockName)
+
+	-- Update preview block
+	if currentTool == "Place" and previewBlock then
+		-- Update preview block appearance based on selected block type
+		if blockName == "Plastic" then
+			previewBlock.BrickColor = BrickColor.new("Bright blue")
+		end
+	end
+end
+
+-- Connect button events
+placeButton.MouseButton1Click:Connect(function()
+	selectTool("Place")
+end)
+
+rotateButton.MouseButton1Click:Connect(function()
+	selectTool("Rotate")
+end)
+
+moveButton.MouseButton1Click:Connect(function()
+	selectTool("Move")
+end)
+
+deleteButton.MouseButton1Click:Connect(function()
+	selectTool("Delete")
+end)
+
+-- Connect block selection button
+blockButton.MouseButton1Click:Connect(function()
+	selectBlock("Plastic")
+end)
+
+-- Connect save and exit buttons
+saveButton.MouseButton1Click:Connect(function()
+	local boatName = boatNameInput.Text
+	if boatName == "" then
+		boatName = "My Boat " .. os.time()
+	end
+
+	-- Send save request to server
+	SaveBoatEvent:FireServer(boatName)
+
+	-- Display status message
+	statusMessage.Text = "Boat saved as: " .. boatName
+	statusMessage.Visible = true
+	delay(3, function()
+		statusMessage.Visible = false
+	end)
+
+	print("Boat saved as: " .. boatName)
+end)
+
+exitButton.MouseButton1Click:Connect(function()
+	disableBuildMode()
+end)
+
+-- Create a "Build" button in the main lobby
+local lobbyBuildButton = Instance.new("TextButton")
+lobbyBuildButton.Size = UDim2.new(0, 200, 0, 50)
+lobbyBuildButton.Position = UDim2.new(0.5, -100, 0, 20)
+lobbyBuildButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+lobbyBuildButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+lobbyBuildButton.Font = Enum.Font.SourceSansBold
+lobbyBuildButton.TextSize = 24
+lobbyBuildButton.Text = "BUILD"
+lobbyBuildButton.Parent = mainScreenGui
+
+lobbyBuildButton.MouseButton1Click:Connect(function()
+	enableBuildMode()
+end)
+
+-- Mouse click handler for building
+mouse.Button1Down:Connect(function()
+	if not buildMode or not currentTool then return end
+
+	if currentTool == "Place" and previewBlock and previewBlock.Transparency < 1 then
+		local position = previewBlock.Position
+		PlaceBlockEvent:FireServer(currentBlock, position)
+		print("Placed block at: " .. tostring(position))
+	elseif currentTool == "Delete" then
+		-- Raycast to find the block to delete
+		local ray = workspace.CurrentCamera:ScreenPointToRay(mouse.X, mouse.Y)
+		local rayResult = workspace:Raycast(ray.Origin, ray.Direction * 100)
+
+		if rayResult and rayResult.Instance and rayResult.Instance.Name:match("^BoatBlock_") then
+			DeleteBlockEvent:FireServer(rayResult.Instance.Name)
+			print("Deleted block: " .. rayResult.Instance.Name)
+		end
+	end
+end)
+
+-- Update preview block position
+RunService.RenderStepped:Connect(function()
+	updatePreviewBlock()
+end)
+
+print("Building UI initialized successfully!")
+
+spectatemanager:
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Wait for Events to be created
+local function waitForPath(parent, path)
+	local current = parent
+	for _, name in ipairs(path:split(".")) do
+		current = current:WaitForChild(name)
+	end
+	return current
+end
+
+-- Get or create main screen GUI
+local mainScreenGui = playerGui:FindFirstChild("MainGui")
+if not mainScreenGui then
+	mainScreenGui = Instance.new("ScreenGui")
+	mainScreenGui.Name = "MainGui"
+	mainScreenGui.Parent = playerGui
+end
+
+-- Create spectate button in main GUI
+local spectateButton = Instance.new("TextButton")
+spectateButton.Size = UDim2.new(0, 150, 0, 40)
+spectateButton.Position = UDim2.new(0.5, -75, 0, 80)
+spectateButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+spectateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+spectateButton.Font = Enum.Font.SourceSansBold
+spectateButton.TextSize = 18
+spectateButton.Text = "SPECTATE"
+spectateButton.Parent = mainScreenGui
+
+-- Create spectate UI
+local spectateGui = Instance.new("ScreenGui")
+spectateGui.Name = "SpectateGui"
+spectateGui.Enabled = false
+spectateGui.Parent = playerGui
+
+-- Create spectate frame
+local spectateFrame = Instance.new("Frame")
+spectateFrame.Size = UDim2.new(0, 200, 0, 250)
+spectateFrame.Position = UDim2.new(1, -220, 0.5, -125)
+spectateFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+spectateFrame.BorderSizePixel = 0
+spectateFrame.Parent = spectateGui
+
+-- Create title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 40)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextSize = 20
+titleLabel.Text = "SPECTATE"
+titleLabel.Parent = spectateFrame
+
+-- Create scrolling frame for player list
+local playerListFrame = Instance.new("ScrollingFrame")
+playerListFrame.Size = UDim2.new(1, -20, 1, -60)
+playerListFrame.Position = UDim2.new(0, 10, 0, 50)
+playerListFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+playerListFrame.BorderSizePixel = 0
+playerListFrame.ScrollBarThickness = 8
+playerListFrame.Parent = spectateFrame
+
+-- Create UIListLayout for player list
+local listLayout = Instance.new("UIListLayout")
+listLayout.Padding = UDim.new(0, 5)
+listLayout.Parent = playerListFrame
+
+-- Variable to track if we're in spectate mode
+local isSpectating = false
+local spectatingPlayer = nil
+
+-- Add exit button
+local exitButton = Instance.new("TextButton")
+exitButton.Size = UDim2.new(1, 0, 0, 40)
+exitButton.Position = UDim2.new(0, 0, 1, 10)
+exitButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+exitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+exitButton.Font = Enum.Font.SourceSansBold
+exitButton.TextSize = 18
+exitButton.Text = "EXIT SPECTATE"
+exitButton.Parent = spectateFrame
+
+-- Function to start spectating a player
+local function spectatePlayer(targetPlayer)
+	if targetPlayer == spectatingPlayer then return end
+
+	spectatingPlayer = targetPlayer
+
+	-- Switch camera to follow target player
+	local character = targetPlayer.Character
+	if character then
+		workspace.CurrentCamera.CameraSubject = character
+	end
+
+	print("Now spectating: " .. targetPlayer.Name)
+end
+
+-- Function to update the player list
+local function updatePlayerList()
+	-- Clear existing buttons
+	for _, child in pairs(playerListFrame:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	-- Add a button for each player in the game
+	for _, otherPlayer in pairs(Players:GetPlayers()) do
+		if otherPlayer ~= player then
+			local playerButton = Instance.new("TextButton")
+			playerButton.Size = UDim2.new(1, -10, 0, 30)
+			playerButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+			playerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+			playerButton.Font = Enum.Font.SourceSans
+			playerButton.TextSize = 16
+			playerButton.Text = otherPlayer.Name
+			playerButton.Parent = playerListFrame
+
+			-- When clicked, spectate this player
+			playerButton.MouseButton1Click:Connect(function()
+				spectatePlayer(otherPlayer)
+			end)
+		end
+	end
+
+	-- Update the canvas size
+	playerListFrame.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y)
+end
+
+-- Function to enable spectate mode
+local function enableSpectateMode()
+	if isSpectating then return end
+
+	isSpectating = true
+	spectateGui.Enabled = true
+
+	-- Save original camera settings
+	local originalCameraType = workspace.CurrentCamera.CameraType
+	local originalCameraSubject = workspace.CurrentCamera.CameraSubject
+
+	-- Update player list
+	updatePlayerList()
+
+	-- Auto-spectate first available player
+	for _, otherPlayer in pairs(Players:GetPlayers()) do
+		if otherPlayer ~= player then
+			spectatePlayer(otherPlayer)
+			break
+		end
+	end
+end
+
+-- Function to disable spectate mode
+local function disableSpectateMode()
+	if not isSpectating then return end
+
+	isSpectating = false
+	spectateGui.Enabled = false
+
+	-- Restore original camera
+	workspace.CurrentCamera.CameraType = Enum.CameraType.Custom
+	workspace.CurrentCamera.CameraSubject = player.Character
+
+	spectatingPlayer = nil
+end
+
+-- Connect spectate button click
+spectateButton.MouseButton1Click:Connect(function()
+	if isSpectating then
+		disableSpectateMode()
+	else
+		enableSpectateMode()
+	end
+end)
+
+-- Connect exit button click
+exitButton.MouseButton1Click:Connect(function()
+	disableSpectateMode()
+end)
+
+-- Handle when players join/leave
+Players.PlayerAdded:Connect(updatePlayerList)
+Players.PlayerRemoving:Connect(updatePlayerList)
+
+-- Wait for GameEvents to be available
+spawn(function()
+	local GameEvents = waitForPath(ReplicatedStorage, "Events.GameEvents")
+	local SpectateEvent = waitForPath(GameEvents, "SpectateEvent")
+	local StartGameEvent = waitForPath(GameEvents, "StartGameEvent")
+	local EndGameEvent = waitForPath(GameEvents, "EndGameEvent")
+
+	-- Connect to server events
+	SpectateEvent.OnClientEvent:Connect(function(enabled)
+		if enabled then
+			enableSpectateMode()
+		else
+			disableSpectateMode()
+		end
+	end)
+
+	StartGameEvent.OnClientEvent:Connect(function()
+		-- Game is starting, disable spectate if active
+		if isSpectating then
+			disableSpectateMode()
+		end
+	end)
+
+	EndGameEvent.OnClientEvent:Connect(function(survivors)
+		-- Game ended, show results
+		local resultsGui = Instance.new("ScreenGui")
+		resultsGui.Name = "ResultsGui"
+		resultsGui.Parent = playerGui
+
+		local resultsFrame = Instance.new("Frame")
+		resultsFrame.Size = UDim2.new(0, 400, 0, 300)
+		resultsFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+		resultsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+		resultsFrame.BorderSizePixel = 0
+		resultsFrame.Parent = resultsGui
+
+		local titleLabel = Instance.new("TextLabel")
+		titleLabel.Size = UDim2.new(1, 0, 0, 60)
+		titleLabel.Position = UDim2.new(0, 0, 0, 0)
+		titleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+		titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		titleLabel.Font = Enum.Font.SourceSansBold
+		titleLabel.TextSize = 28
+		titleLabel.Text = "GAME OVER"
+		titleLabel.Parent = resultsFrame
+
+		local survivorsLabel = Instance.new("TextLabel")
+		survivorsLabel.Size = UDim2.new(1, -40, 0, 40)
+		survivorsLabel.Position = UDim2.new(0, 20, 0, 80)
+		survivorsLabel.BackgroundTransparency = 1
+		survivorsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+		survivorsLabel.Font = Enum.Font.SourceSansBold
+		survivorsLabel.TextSize = 22
+		survivorsLabel.Text = "Survivors:"
+		survivorsLabel.TextXAlignment = Enum.TextXAlignment.Left
+		survivorsLabel.Parent = resultsFrame
+
+		local survivorsListLabel = Instance.new("TextLabel")
+		survivorsListLabel.Size = UDim2.new(1, -40, 0, 100)
+		survivorsListLabel.Position = UDim2.new(0, 20, 0, 130)
+		survivorsListLabel.BackgroundTransparency = 1
+		survivorsListLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+		survivorsListLabel.Font = Enum.Font.SourceSans
+		survivorsListLabel.TextSize = 20
+		survivorsListLabel.Text = table.concat(survivors, "\n")
+		survivorsListLabel.TextXAlignment = Enum.TextXAlignment.Left
+		survivorsListLabel.TextYAlignment = Enum.TextYAlignment.Top
+		survivorsListLabel.Parent = resultsFrame
+
+		local closeButton = Instance.new("TextButton")
+		closeButton.Size = UDim2.new(0, 120, 0, 40)
+		closeButton.Position = UDim2.new(0.5, -60, 1, -60)
+		closeButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+		closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		closeButton.Font = Enum.Font.SourceSansBold
+		closeButton.TextSize = 18
+		closeButton.Text = "CLOSE"
+		closeButton.Parent = resultsFrame
+
+		closeButton.MouseButton1Click:Connect(function()
+			resultsGui:Destroy()
+		end)
+
+		-- Auto close after 8 seconds
+		spawn(function()
+			wait(8)
+			if resultsGui and resultsGui.Parent then
+				resultsGui:Destroy()
+			end
+		end)
+	end)
+end)
+
+print("Spectate Manager initialized")
+
+timerui:
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Wait for Events to be created
+local Events = ReplicatedStorage:WaitForChild("Events")
+local GameEvents = Events:WaitForChild("GameEvents")
+
+-- Get game event references
+local LobbyTimerEvent = GameEvents:WaitForChild("LobbyTimerEvent")
+local StartGameEvent = GameEvents:WaitForChild("StartGameEvent")
+local EndGameEvent = GameEvents:WaitForChild("EndGameEvent")
+
+-- Create new events for boat data
+local GetSavedBoatsEvent = GameEvents:FindFirstChild("GetSavedBoatsEvent") or Instance.new("RemoteFunction")
+GetSavedBoatsEvent.Name = "GetSavedBoatsEvent"
+GetSavedBoatsEvent.Parent = GameEvents
+
+local SelectBoatEvent = GameEvents:FindFirstChild("SelectBoatEvent") or Instance.new("RemoteEvent")
+SelectBoatEvent.Name = "SelectBoatEvent"
+SelectBoatEvent.Parent = GameEvents
+
+-- Get or create main GUI
+local mainScreenGui = playerGui:FindFirstChild("MainGui")
+if not mainScreenGui then
+	mainScreenGui = Instance.new("ScreenGui")
+	mainScreenGui.Name = "MainGui"
+	mainScreenGui.Parent = playerGui
+end
+
+-- Create timer frame
+local timerFrame = Instance.new("Frame")
+timerFrame.Size = UDim2.new(0, 250, 0, 60)
+timerFrame.Position = UDim2.new(0.5, -125, 0, 80)
+timerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+timerFrame.BackgroundTransparency = 0.3
+timerFrame.BorderSizePixel = 0
+timerFrame.Visible = false
+timerFrame.Parent = mainScreenGui
+
+-- Create timer label
+local timerLabel = Instance.new("TextLabel")
+timerLabel.Size = UDim2.new(1, 0, 1, 0)
+timerLabel.BackgroundTransparency = 1
+timerLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+timerLabel.Font = Enum.Font.SourceSansBold
+timerLabel.TextSize = 30
+timerLabel.Text = "Starting in: 60"
+timerLabel.Parent = timerFrame
+
+-- Create AFK button
+local afkButton = Instance.new("TextButton")
+afkButton.Size = UDim2.new(0, 150, 0, 40)
+afkButton.Position = UDim2.new(0.5, -75, 0, 140)
+afkButton.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+afkButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+afkButton.Font = Enum.Font.SourceSansBold
+afkButton.TextSize = 18
+afkButton.Text = "AFK: OFF"
+afkButton.Parent = mainScreenGui
+
+-- Create boat selection button
+local selectBoatButton = Instance.new("TextButton")
+selectBoatButton.Size = UDim2.new(0, 150, 0, 40)
+selectBoatButton.Position = UDim2.new(0.5, -75, 0, 200)
+selectBoatButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+selectBoatButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+selectBoatButton.Font = Enum.Font.SourceSansBold
+selectBoatButton.TextSize = 18
+selectBoatButton.Text = "SELECT BOAT"
+selectBoatButton.Parent = mainScreenGui
+
+-- Create boat selection GUI
+local boatSelectionGui = Instance.new("ScreenGui")
+boatSelectionGui.Name = "BoatSelectionGui"
+boatSelectionGui.Enabled = false
+boatSelectionGui.Parent = playerGui
+
+-- Create boat selection frame
+local selectionFrame = Instance.new("Frame")
+selectionFrame.Size = UDim2.new(0, 400, 0, 300)
+selectionFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+selectionFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+selectionFrame.BorderSizePixel = 0
+selectionFrame.Parent = boatSelectionGui
+
+-- Create title
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 40)
+titleLabel.Position = UDim2.new(0, 0, 0, 0)
+titleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextSize = 24
+titleLabel.Text = "Select Your Boat"
+titleLabel.Parent = selectionFrame
+
+-- Create boat list frame
+local boatListFrame = Instance.new("ScrollingFrame")
+boatListFrame.Size = UDim2.new(1, -20, 1, -120)
+boatListFrame.Position = UDim2.new(0, 10, 0, 50)
+boatListFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+boatListFrame.BorderSizePixel = 0
+boatListFrame.ScrollBarThickness = 8
+boatListFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
+boatListFrame.Parent = selectionFrame
+
+-- Create a "no boats" message
+local noBoatsLabel = Instance.new("TextLabel")
+noBoatsLabel.Size = UDim2.new(1, -20, 0, 60)
+noBoatsLabel.Position = UDim2.new(0, 10, 0, 40)
+noBoatsLabel.BackgroundTransparency = 1
+noBoatsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+noBoatsLabel.Font = Enum.Font.SourceSans
+noBoatsLabel.TextSize = 18
+noBoatsLabel.Text = "You haven't saved any boats yet!\n\nBuild and save a boat first."
+noBoatsLabel.TextWrapped = true
+noBoatsLabel.Visible = false
+noBoatsLabel.Parent = boatListFrame
+
+-- Create close button
+local closeButton = Instance.new("TextButton")
+closeButton.Size = UDim2.new(0, 120, 0, 40)
+closeButton.Position = UDim2.new(0.5, -60, 1, -50)
+closeButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+closeButton.Font = Enum.Font.SourceSansBold
+closeButton.TextSize = 18
+closeButton.Text = "CLOSE"
+closeButton.Parent = selectionFrame
+
+-- Variables
+local isAFK = false
+local selectedBoatName = nil
+local playerBoats = {} -- Will store the actual player boats
+
+-- Function to get the player's saved boats
+local function getSavedBoats()
+	-- Request saved boats from server
+	local success, boatList = pcall(function()
+		return GetSavedBoatsEvent:InvokeServer()
+	end)
+
+	if success and boatList and type(boatList) == "table" then
+		playerBoats = boatList
+		return boatList
+	else
+		warn("Failed to get saved boats: ", boatList)
+		return {}
+	end
+end
+
+-- Function to update boat list
+local function updateBoatList()
+	-- Clear existing buttons
+	for _, child in pairs(boatListFrame:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	-- Get fresh list of saved boats
+	local boats = getSavedBoats()
+	print("Found " .. #boats .. " saved boats")
+
+	-- Check if there are any boats
+	if #boats == 0 then
+		noBoatsLabel.Visible = true
+		return
+	else
+		noBoatsLabel.Visible = false
+	end
+
+	-- Add a button for each saved boat
+	for i, boatName in ipairs(boats) do
+		local boatButton = Instance.new("TextButton")
+		boatButton.Size = UDim2.new(1, -20, 0, 40)
+		boatButton.Position = UDim2.new(0, 10, 0, (i-1) * 50)
+		boatButton.BackgroundColor3 = (boatName == selectedBoatName) 
+			and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(70, 70, 70)
+		boatButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+		boatButton.Font = Enum.Font.SourceSans
+		boatButton.TextSize = 18
+		boatButton.Text = boatName
+		boatButton.Parent = boatListFrame
+
+		-- When clicked, select this boat
+		boatButton.MouseButton1Click:Connect(function()
+			selectedBoatName = boatName
+			print("Selected boat: " .. boatName)
+
+			-- Update all buttons to show selection
+			for _, btn in pairs(boatListFrame:GetChildren()) do
+				if btn:IsA("TextButton") then
+					btn.BackgroundColor3 = (btn.Text == selectedBoatName) 
+						and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(70, 70, 70)
+				end
+			end
+
+			-- Send selection to server
+			SelectBoatEvent:FireServer(boatName)
+		end)
+	end
+
+	-- Update the canvas size
+	local canvasHeight = math.max(#boats * 50, boatListFrame.AbsoluteSize.Y)
+	boatListFrame.CanvasSize = UDim2.new(0, 0, 0, canvasHeight)
+end
+
+-- Connect lobby timer event
+LobbyTimerEvent.OnClientEvent:Connect(function(countdown)
+	if countdown > 0 then
+		timerFrame.Visible = true
+		timerLabel.Text = "Starting in: " .. countdown
+
+		-- Remove any existing LobbyTimerGui (conflicting timer)
+		local oldTimerGui = playerGui:FindFirstChild("LobbyTimerGui")
+		if oldTimerGui then
+			oldTimerGui:Destroy()
+		end
+	else
+		timerFrame.Visible = false
+	end
+end)
+
+-- Connect game start event
+StartGameEvent.OnClientEvent:Connect(function()
+	print("Game is starting!")
+	timerFrame.Visible = false
+	boatSelectionGui.Enabled = false
+	-- Disable UI temporarily during game
+	afkButton.Visible = false
+	selectBoatButton.Visible = false
+
+	-- Remove any existing game status frames
+	local oldStatusFrame = mainScreenGui:FindFirstChild("GameStatusFrame")
+	if oldStatusFrame then
+		oldStatusFrame:Destroy()
+	end
+
+	-- Show game UI
+	local gameStatusFrame = Instance.new("Frame")
+	gameStatusFrame.Name = "GameStatusFrame"
+	gameStatusFrame.Size = UDim2.new(0, 200, 0, 50)
+	gameStatusFrame.Position = UDim2.new(1, -210, 0, 10)
+	gameStatusFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	gameStatusFrame.BackgroundTransparency = 0.3
+	gameStatusFrame.BorderSizePixel = 0
+	gameStatusFrame.Parent = mainScreenGui
+
+	local gameStatusLabel = Instance.new("TextLabel")
+	gameStatusLabel.Size = UDim2.new(1, 0, 1, 0)
+	gameStatusLabel.BackgroundTransparency = 1
+	gameStatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	gameStatusLabel.Font = Enum.Font.SourceSans
+	gameStatusLabel.TextSize = 18
+	gameStatusLabel.Text = "Game in progress"
+	gameStatusLabel.Parent = gameStatusFrame
+end)
+
+-- Connect game end event
+EndGameEvent.OnClientEvent:Connect(function(survivors)
+	print("Game has ended!")
+	-- Remove game status frame
+	local gameStatusFrame = mainScreenGui:FindFirstChild("GameStatusFrame")
+	if gameStatusFrame then
+		gameStatusFrame:Destroy()
+	end
+
+	-- Restore UI
+	afkButton.Visible = true
+	selectBoatButton.Visible = true
+
+	-- Close any existing results GUI
+	local oldResultsGui = playerGui:FindFirstChild("ResultsGui")
+	if oldResultsGui then
+		oldResultsGui:Destroy()
+	end
+
+	-- Show results
+	local resultsGui = Instance.new("ScreenGui")
+	resultsGui.Name = "ResultsGui"
+	resultsGui.Parent = playerGui
+
+	local resultsFrame = Instance.new("Frame")
+	resultsFrame.Size = UDim2.new(0, 400, 0, 300)
+	resultsFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
+	resultsFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+	resultsFrame.BorderSizePixel = 0
+	resultsFrame.Parent = resultsGui
+
+	local titleLabel = Instance.new("TextLabel")
+	titleLabel.Size = UDim2.new(1, 0, 0, 60)
+	titleLabel.Position = UDim2.new(0, 0, 0, 0)
+	titleLabel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+	titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	titleLabel.Font = Enum.Font.SourceSansBold
+	titleLabel.TextSize = 28
+	titleLabel.Text = "GAME OVER"
+	titleLabel.Parent = resultsFrame
+
+	local survivorsLabel = Instance.new("TextLabel")
+	survivorsLabel.Size = UDim2.new(1, -40, 0, 40)
+	survivorsLabel.Position = UDim2.new(0, 20, 0, 80)
+	survivorsLabel.BackgroundTransparency = 1
+	survivorsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	survivorsLabel.Font = Enum.Font.SourceSansBold
+	survivorsLabel.TextSize = 22
+	survivorsLabel.Text = "Survivors:"
+	survivorsLabel.TextXAlignment = Enum.TextXAlignment.Left
+	survivorsLabel.Parent = resultsFrame
+
+	local survivorsListLabel = Instance.new("TextLabel")
+	survivorsListLabel.Size = UDim2.new(1, -40, 0, 100)
+	survivorsListLabel.Position = UDim2.new(0, 20, 0, 130)
+	survivorsListLabel.BackgroundTransparency = 1
+	survivorsListLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+	survivorsListLabel.Font = Enum.Font.SourceSans
+	survivorsListLabel.TextSize = 20
+	survivorsListLabel.Text = #survivors > 0 and table.concat(survivors, "\n") or "No survivors!"
+	survivorsListLabel.TextXAlignment = Enum.TextXAlignment.Left
+	survivorsListLabel.TextYAlignment = Enum.TextYAlignment.Top
+	survivorsListLabel.Parent = resultsFrame
+
+	local closeButton = Instance.new("TextButton")
+	closeButton.Size = UDim2.new(0, 120, 0, 40)
+	closeButton.Position = UDim2.new(0.5, -60, 1, -60)
+	closeButton.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+	closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+	closeButton.Font = Enum.Font.SourceSansBold
+	closeButton.TextSize = 18
+	closeButton.Text = "CLOSE"
+	closeButton.Parent = resultsFrame
+
+	closeButton.MouseButton1Click:Connect(function()
+		resultsGui:Destroy()
+	end)
+
+	-- Auto close after 8 seconds
+	spawn(function()
+		wait(8)
+		if resultsGui and resultsGui.Parent then
+			resultsGui:Destroy()
+		end
+	end)
+end)
+
+-- Connect AFK button
+afkButton.MouseButton1Click:Connect(function()
+	isAFK = not isAFK
+	afkButton.Text = isAFK and "AFK: ON" or "AFK: OFF"
+	afkButton.BackgroundColor3 = isAFK and Color3.fromRGB(231, 76, 60) or Color3.fromRGB(80, 80, 80)
+
+	-- Fire AFK toggle event
+	local AFKEvent = GameEvents:FindFirstChild("AFKEvent")
+	if AFKEvent then
+		AFKEvent:FireServer(isAFK)
+	end
+end)
+
+-- Connect boat selection button
+selectBoatButton.MouseButton1Click:Connect(function()
+	updateBoatList() -- Update boat list before showing
+	boatSelectionGui.Enabled = true
+end)
+
+-- Connect close button
+closeButton.MouseButton1Click:Connect(function()
+	boatSelectionGui.Enabled = false
+end)
+
+player.CharacterAdded:Connect(function(character)
+	-- Make sure UI stays visible after respawning
+	wait(1)
+
+	-- Restore UI buttons if they're not visible
+	if not afkButton.Visible then
+		afkButton.Visible = true
+	end
+
+	if not selectBoatButton.Visible then
+		selectBoatButton.Visible = true
+	end
+end)
+
+-- Delete the old LobbyTimer script to avoid conflicts
+spawn(function()
+	-- We'll use our own timer
+	local oldTimerGui = playerGui:FindFirstChild("LobbyTimerGui")
+	if oldTimerGui then
+		oldTimerGui:Destroy()
+	end
+end)
+
+print("Timer UI initialized")
+
+read through all the code carefully, analyze the possible errors, consider fixes, and then give me the WHOLE updated code, not just snippets with the best fixes considering what i want and what's best
