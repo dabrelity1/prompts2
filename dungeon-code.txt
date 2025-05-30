@@ -1,0 +1,2144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏰 ULTIMATE DUNGEON RPG - Enhanced Edition</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            margin: 0;
+            padding: 20px;
+            color: white;
+            min-height: 100vh;
+            animation: backgroundShift 30s ease-in-out infinite;
+        }
+
+        @keyframes backgroundShift {
+            0%, 100% { background: linear-gradient(135deg, #1e3c72, #2a5298); }
+            25% { background: linear-gradient(135deg, #8e44ad, #3498db); }
+            50% { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+            75% { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+        }
+
+        .game-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: rgba(0, 0, 0, 0.85);
+            padding: 20px;
+            border-radius: 15px;
+            border: 2px solid #4CAF50;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .title {
+            text-align: center;
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px #000;
+            grid-column: 1 / -1;
+            background: linear-gradient(45deg, #FFD700, #FFA500, #FF6B6B, #4ECDC4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: titleGlow 3s ease-in-out infinite;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .player-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .stat-box {
+            background: rgba(76, 175, 80, 0.2);
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #4CAF50;
+            font-size: 0.9em;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 18px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 5px;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            transition: width 0.5s ease;
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .hp-bar { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+        .mp-bar { background: linear-gradient(90deg, #3498db, #2980b9); }
+        .exp-bar { background: linear-gradient(90deg, #f39c12, #e67e22); }
+        .stamina-bar { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+
+        .floor-display {
+            text-align: center;
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: linear-gradient(45deg, #8e44ad, #9b59b6);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .floor-display::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+            animation: rotate 4s linear infinite;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .combat-area {
+            min-height: 200px;
+            background: rgba(231, 76, 60, 0.15);
+            border: 2px solid #e74c3c;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .enemy-display {
+            text-align: center;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+        }
+
+        .enemy-emoji {
+            font-size: 2.5em;
+            display: block;
+            margin-bottom: 8px;
+            animation: enemyFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes enemyFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .action-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .action-btn {
+            padding: 10px;
+            background: linear-gradient(45deg, #27ae60, #2ecc71);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .action-btn:hover {
+            background: linear-gradient(45deg, #2ecc71, #27ae60);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .action-btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .action-btn:hover::before {
+            left: 100%;
+        }
+
+        .shop-btn {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+        }
+
+        .combat-btn {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+        }
+
+        .special-btn {
+            background: linear-gradient(45deg, #9b59b6, #8e44ad);
+        }
+
+        .game-log {
+            height: 250px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid #555;
+            font-size: 0.85em;
+            line-height: 1.3;
+        }
+
+        .log-entry {
+            margin-bottom: 6px;
+            padding: 4px;
+            border-radius: 4px;
+            animation: logEntry 0.5s ease-in;
+        }
+
+        @keyframes logEntry {
+            0% { opacity: 0; transform: translateX(-20px); }
+            100% { opacity: 1; transform: translateX(0); }
+        }
+
+        .log-combat {
+            background: rgba(231, 76, 60, 0.2);
+            border-left: 3px solid #e74c3c;
+        }
+
+        .log-level {
+            background: rgba(241, 196, 15, 0.2);
+            border-left: 3px solid #f1c40f;
+        }
+
+        .log-treasure {
+            background: rgba(155, 89, 182, 0.2);
+            border-left: 3px solid #9b59b6;
+        }
+
+        .log-special {
+            background: rgba(52, 152, 219, 0.2);
+            border-left: 3px solid #3498db;
+        }
+
+        .inventory-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .inventory-item {
+            background: rgba(52, 152, 219, 0.2);
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #3498db;
+            font-size: 0.85em;
+        }
+
+        .class-display {
+            background: linear-gradient(45deg, #e67e22, #f39c12);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .skills-panel {
+            background: rgba(142, 68, 173, 0.2);
+            border: 1px solid #8e44ad;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .skill-btn {
+            width: 100%;
+            margin-bottom: 5px;
+            background: linear-gradient(45deg, #8e44ad, #9b59b6);
+            font-size: 0.8em;
+            padding: 8px;
+        }
+
+        .achievements-panel {
+            background: rgba(241, 196, 15, 0.2);
+            border: 1px solid #f1c40f;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .achievement {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px;
+            border-radius: 4px;
+            margin-bottom: 3px;
+            font-size: 0.8em;
+        }
+
+        .achievement.unlocked {
+            background: rgba(241, 196, 15, 0.3);
+            border-left: 3px solid #f1c40f;
+        }
+
+        .dungeon-info {
+            background: rgba(44, 62, 80, 0.8);
+            border: 2px solid #34495e;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .boss-warning {
+            background: linear-gradient(45deg, #8e44ad, #e74c3c);
+            animation: boss-pulse 2s infinite;
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        @keyframes boss-pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(231, 76, 60, 0.5); }
+            50% { transform: scale(1.05); box-shadow: 0 0 30px rgba(231, 76, 60, 0.8); }
+        }
+
+        .special-event {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            animation: specialGlow 3s ease-in-out infinite;
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        @keyframes specialGlow {
+            0%, 100% { box-shadow: 0 0 20px rgba(52, 152, 219, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(52, 152, 219, 0.8); }
+        }
+
+        .mini-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .mini-stat {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 5px;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 0.75em;
+        }
+
+        .status-effects {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .status-effect {
+            background: rgba(155, 89, 182, 0.8);
+            padding: 3px 6px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            animation: statusPulse 2s infinite;
+        }
+
+        @keyframes statusPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @media (max-width: 1200px) {
+            .game-container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .game-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .player-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1 class="title">🏰 ULTIMATE DUNGEON RPG 🏰<br><small>Enhanced Edition</small></h1>
+        
+        <!-- Player Panel -->
+        <div class="panel">
+            <h2>👤 Hero dabrelity1</h2>
+            
+            <div class="class-display" id="classDisplay">
+                🗡️ Warrior - Level 1
+            </div>
+            
+            <div class="player-stats">
+                <div class="stat-box">
+                    <div>⭐ Level</div>
+                    <div class="stat-value" id="playerLevel">1</div>
+                </div>
+                <div class="stat-box">
+                    <div>💰 Gold</div>
+                    <div class="stat-value" id="playerGold">50</div>
+                </div>
+                <div class="stat-box">
+                    <div>💎 Gems</div>
+                    <div class="stat-value" id="playerGems">0</div>
+                </div>
+                <div class="stat-box">
+                    <div>⚔️ Attack</div>
+                    <div class="stat-value" id="playerAttack">15</div>
+                </div>
+                <div class="stat-box">
+                    <div>🛡️ Defense</div>
+                    <div class="stat-value" id="playerDefense">10</div>
+                </div>
+                <div class="stat-box">
+                    <div>🔮 Magic</div>
+                    <div class="stat-value" id="playerMagic">12</div>
+                </div>
+            </div>
+
+            <div class="stat-box" style="margin-bottom: 8px;">
+                <div>❤️ HP: <span id="playerHp">100</span>/<span id="playerMaxHp">100</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill hp-bar" id="hpBar" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <div class="stat-box" style="margin-bottom: 8px;">
+                <div>💙 MP: <span id="playerMp">50</span>/<span id="playerMaxMp">50</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill mp-bar" id="mpBar" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <div class="stat-box" style="margin-bottom: 8px;">
+                <div>⚡ Stamina: <span id="playerStamina">100</span>/<span id="playerMaxStamina">100</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill stamina-bar" id="staminaBar" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <div class="stat-box">
+                <div>📈 EXP: <span id="playerExp">0</span>/<span id="playerExpNext">100</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill exp-bar" id="expBar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="status-effects" id="statusEffects">
+                <!-- Status effects will appear here -->
+            </div>
+
+            <div class="mini-stats">
+                <div class="mini-stat">
+                    🎯 Crit: <span id="critChance">5%</span>
+                </div>
+                <div class="mini-stat">
+                    🏃 Speed: <span id="speed">10</span>
+                </div>
+                <div class="mini-stat">
+                    🍀 Luck: <span id="luck">5</span>
+                </div>
+                <div class="mini-stat">
+                    🔥 Streak: <span id="killStreak">0</span>
+                </div>
+            </div>
+
+            <div class="inventory-grid">
+                <div class="inventory-item">
+                    🧪 Potions: <span id="potionCount">3</span>
+                </div>
+                <div class="inventory-item">
+                    🔵 Ethers: <span id="etherCount">1</span>
+                </div>
+                <div class="inventory-item">
+                    🗡️ <span id="weaponName">Iron Sword</span>
+                </div>
+                <div class="inventory-item">
+                    🛡️ <span id="armorName">Cloth Armor</span>
+                </div>
+                <div class="inventory-item">
+                    💍 <span id="accessoryName">None</span>
+                </div>
+                <div class="inventory-item">
+                    📿 <span id="artifactName">None</span>
+                </div>
+            </div>
+
+            <div class="skills-panel">
+                <h4>🎯 Skills</h4>
+                <button class="action-btn skill-btn" onclick="useSkill('power_strike')" id="powerStrike">⚡ Power Strike (10 SP)</button>
+                <button class="action-btn skill-btn" onclick="useSkill('heal')" id="healSkill">💚 Heal (15 MP)</button>
+                <button class="action-btn skill-btn" onclick="useSkill('berserker')" id="berserkerSkill">😡 Berserker Mode (20 SP)</button>
+            </div>
+        </div>
+
+        <!-- Game Area Panel -->
+        <div class="panel">
+            <div class="floor-display" id="floorDisplay">
+                🏰 Floor 1 / 100
+            </div>
+
+            <div class="dungeon-info" id="dungeonInfo">
+                <div>🌍 Zone: <span id="currentZone">Abandoned Ruins</span></div>
+                <div>🌡️ Environment: <span id="environment">Normal</span></div>
+                <div>⏰ Time: <span id="dungeonTime">Day</span></div>
+            </div>
+
+            <div id="gameArea">
+                <div id="exploreArea">
+                    <div class="action-buttons">
+                        <button class="action-btn" onclick="nextAction()">🚪 Continue Exploring</button>
+                        <button class="action-btn special-btn" onclick="useSpecialAction()">✨ Special Action</button>
+                        <button class="action-btn" onclick="showStatus()">📊 Check Status</button>
+                        <button class="action-btn" onclick="openInventory()">🎒 Inventory</button>
+                        <button class="action-btn" onclick="restHere()">😴 Rest (Costs 10 Stamina)</button>
+                        <button class="action-btn" onclick="searchArea()">🔍 Search Area</button>
+                    </div>
+                </div>
+
+                <div id="combatArea" class="combat-area" style="display: none;">
+                    <div class="enemy-display" id="enemyDisplay">
+                        <span class="enemy-emoji" id="enemyEmoji">👹</span>
+                        <div id="enemyName">Goblin</div>
+                        <div id="enemyType">Type: Normal</div>
+                        <div>HP: <span id="enemyHp">30</span>/<span id="enemyMaxHp">30</span></div>
+                        <div class="progress-bar">
+                            <div class="progress-fill hp-bar" id="enemyHpBar" style="width: 100%"></div>
+                        </div>
+                        <div id="enemyStatusEffects" class="status-effects">
+                            <!-- Enemy status effects -->
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="action-btn combat-btn" onclick="performAction(1)">⚔️ Attack</button>
+                        <button class="action-btn combat-btn" onclick="performAction(2)">🔮 Magic (10 MP)</button>
+                        <button class="action-btn" onclick="performAction(3)">🧪 Potion</button>
+                        <button class="action-btn" onclick="performAction(4)">🔵 Ether</button>
+                        <button class="action-btn special-btn" onclick="performAction(6)">⚡ Power Strike</button>
+                        <button class="action-btn" onclick="performAction(5)">🏃 Flee</button>
+                    </div>
+                </div>
+
+                <div id="shopArea" style="display: none;">
+                    <h3>🏪 <span id="merchantType">Mysterious Merchant</span></h3>
+                    <div id="shopInventory">
+                        <!-- Shop items will be generated here -->
+                    </div>
+                    <div class="action-buttons">
+                        <button class="action-btn shop-btn" onclick="buyItem(1)">🧪 Potion (50g)</button>
+                        <button class="action-btn shop-btn" onclick="buyItem(2)">🔵 Ether (80g)</button>
+                        <button class="action-btn shop-btn" onclick="buyItem(3)" id="weaponUpgrade">🗡️ Weapon Upgrade</button>
+                        <button class="action-btn shop-btn" onclick="buyItem(4)" id="armorUpgrade">🛡️ Armor Upgrade</button>
+                        <button class="action-btn shop-btn" onclick="buyItem(7)">💍 Accessory</button>
+                        <button class="action-btn" onclick="buyItem(5)">🚪 Leave Shop</button>
+                    </div>
+                </div>
+
+                <div id="specialEventArea" style="display: none;">
+                    <!-- Special events will appear here -->
+                </div>
+
+                <div id="bossArea" class="boss-warning" style="display: none;">
+                    <h2>🔥 BOSS BATTLE! 🔥</h2>
+                    <div id="bossInfo"></div>
+                </div>
+
+                <div id="victoryArea" style="display: none;">
+                    <div style="background: linear-gradient(45deg, #f1c40f, #f39c12); color: #000; text-align: center; padding: 30px; border-radius: 20px;">
+                        <h2>🏆 ULTIMATE VICTORY! 🏆</h2>
+                        <p>You have conquered the 100-Floor Dungeon!</p>
+                        <p>The Ancient Dragon Emperor has been defeated!</p>
+                        <div id="finalStats"></div>
+                        <button class="action-btn" onclick="restartGame()">🔄 New Game+</button>
+                    </div>
+                </div>
+
+                <div id="gameOverArea" style="display: none;">
+                    <div style="background: linear-gradient(45deg, #2c3e50, #34495e); text-align: center; padding: 30px; border-radius: 20px; border: 3px solid #e74c3c;">
+                        <h2>💀 GAME OVER 💀</h2>
+                        <p>Your adventure ends here...</p>
+                        <div id="gameOverStats"></div>
+                        <button class="action-btn" onclick="restartGame()">🔄 Try Again</button>
+                        <button class="action-btn" onclick="loadLastSave()">📁 Load Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Panel -->
+        <div class="panel">
+            <div class="achievements-panel">
+                <h4>🏆 Achievements</h4>
+                <div id="achievementsList">
+                    <div class="achievement" id="firstKill">🗡️ First Blood</div>
+                    <div class="achievement" id="levelUp">⭐ Level Up!</div>
+                    <div class="achievement" id="firstBoss">👑 Boss Slayer</div>
+                    <div class="achievement" id="collector">💰 Treasure Hunter</div>
+                    <div class="achievement" id="survivor">🛡️ Survivor</div>
+                </div>
+            </div>
+
+            <h3>📜 Adventure Log</h3>
+            <div class="game-log" id="gameLog">
+                <div class="log-entry">🏰 Welcome to the Ultimate Dungeon RPG!</div>
+                <div class="log-entry">👤 Hero dabrelity1 enters the enhanced dungeon...</div>
+                <div class="log-entry">🎯 Goal: Conquer 100 floors and face the Dragon Emperor!</div>
+                <div class="log-entry">✨ New features: Classes, skills, artifacts, and more!</div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <h4>🎮 Quick Actions</h4>
+                <div class="action-buttons">
+                    <button class="action-btn" onclick="saveGame()">💾 Save</button>
+                    <button class="action-btn" onclick="loadGame()">📁 Load</button>
+                    <button class="action-btn" onclick="toggleMusic()">🎵 Music</button>
+                    <button class="action-btn" onclick="showHelp()">❓ Help</button>
+                    <button class="action-btn" onclick="restartGame()">🔄 New Game</button>
+                    <button class="action-btn special-btn" onclick="openClassSelection()">🎭 Change Class</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Enhanced DungeonRPG class with massive new content
+        class EnhancedDungeonRPG {
+            constructor() {
+                this.player = {
+                    name: "dabrelity1",
+                    class: "Warrior",
+                    level: 1,
+                    hp: 100,
+                    maxHp: 100,
+                    mp: 50,
+                    maxMp: 50,
+                    stamina: 100,
+                    maxStamina: 100,
+                    attack: 15,
+                    defense: 10,
+                    magic: 12,
+                    speed: 10,
+                    luck: 5,
+                    critChance: 5,
+                    exp: 0,
+                    expToNext: 100,
+                    gold: 50,
+                    gems: 0,
+                    killStreak: 0,
+                    inventory: { 
+                        potions: 3, 
+                        ethers: 1,
+                        scrolls: 0,
+                        keys: 0,
+                        artifacts: []
+                    },
+                    equipment: { 
+                        weapon: "Iron Sword", 
+                        armor: "Cloth Armor",
+                        accessory: "None",
+                        artifact: "None"
+                    },
+                    statusEffects: [],
+                    skills: {
+                        powerStrike: { level: 1, uses: 3 },
+                        heal: { level: 1, uses: 2 },
+                        berserker: { level: 1, uses: 1 }
+                    },
+                    achievements: [],
+                    statistics: {
+                        monstersKilled: 0,
+                        bossesDefeated: 0,
+                        treasuresFound: 0,
+                        floorsExplored: 0,
+                        goldEarned: 0
+                    }
+                };
+                
+                this.currentFloor = 1;
+                this.gameState = "ready";
+                this.currentEnemy = null;
+                this.gameLog = [];
+                this.currentZone = "Abandoned Ruins";
+                this.environment = "Normal";
+                this.timeOfDay = "Day";
+                this.specialEvents = [];
+                this.musicPlaying = false;
+                
+                this.zones = [
+                    { name: "Abandoned Ruins", floors: [1, 15], theme: "ancient" },
+                    { name: "Poison Swamps", floors: [16, 30], theme: "toxic" },
+                    { name: "Crystal Caverns", floors: [31, 45], theme: "magical" },
+                    { name: "Burning Depths", floors: [46, 60], theme: "fire" },
+                    { name: "Frozen Peaks", floors: [61, 75], theme: "ice" },
+                    { name: "Shadow Realm", floors: [76, 90], theme: "dark" },
+                    { name: "Dragon's Lair", floors: [91, 100], theme: "dragon" }
+                ];
+
+                this.classes = {
+                    "Warrior": {
+                        bonuses: { attack: 5, defense: 3, hp: 20 },
+                        skills: ["Power Strike", "Shield Bash", "Taunt"]
+                    },
+                    "Mage": {
+                        bonuses: { magic: 8, mp: 30, attack: -2 },
+                        skills: ["Fireball", "Ice Shard", "Lightning"]
+                    },
+                    "Rogue": {
+                        bonuses: { speed: 5, critChance: 10, luck: 3 },
+                        skills: ["Backstab", "Stealth", "Poison"]
+                    },
+                    "Paladin": {
+                        bonuses: { defense: 5, hp: 15, magic: 3 },
+                        skills: ["Holy Light", "Divine Shield", "Smite"]
+                    },
+                    "Necromancer": {
+                        bonuses: { magic: 6, mp: 25, hp: -10 },
+                        skills: ["Drain Life", "Summon Skeleton", "Curse"]
+                    }
+                };
+                
+                this.equipment = {
+                    weapons: {
+                        "Iron Sword": { attack: 5, value: 50, rarity: "common" },
+                        "Steel Sword": { attack: 12, value: 150, rarity: "common" },
+                        "Silver Blade": { attack: 20, value: 300, rarity: "uncommon" },
+                        "Flame Sword": { attack: 30, magic: 5, value: 500, rarity: "rare" },
+                        "Dragon Slayer": { attack: 45, critChance: 10, value: 1000, rarity: "epic" },
+                        "Excalibur": { attack: 60, defense: 10, value: 2000, rarity: "legendary" }
+                    },
+                    armor: {
+                        "Cloth Armor": { defense: 3, value: 30, rarity: "common" },
+                        "Leather Armor": { defense: 8, speed: 2, value: 100, rarity: "common" },
+                        "Chain Mail": { defense: 15, value: 250, rarity: "uncommon" },
+                        "Plate Armor": { defense: 25, speed: -3, value: 450, rarity: "rare" },
+                        "Dragon Scale": { defense: 40, magic: 5, value: 800, rarity: "epic" },
+                        "Divine Aegis": { defense: 50, hp: 50, value: 1500, rarity: "legendary" }
+                    },
+                    accessories: {
+                        "None": { value: 0 },
+                        "Ring of Power": { attack: 8, value: 200, rarity: "uncommon" },
+                        "Ring of Protection": { defense: 6, value: 180, rarity: "uncommon" },
+                        "Amulet of Magic": { magic: 10, mp: 20, value: 300, rarity: "rare" },
+                        "Cloak of Speed": { speed: 8, value: 250, rarity: "rare" },
+                        "Lucky Charm": { luck: 10, critChance: 5, value: 400, rarity: "epic" }
+                    }
+                };
+                
+                this.monsters = {
+                    early: [
+                        { name: "Goblin", hp: 30, attack: 8, defense: 3, speed: 8, exp: 15, gold: 10, emoji: "👹", type: "normal", skills: [] },
+                        { name: "Slime", hp: 25, attack: 6, defense: 2, speed: 5, exp: 12, gold: 8, emoji: "🟢", type: "normal", skills: ["poison"] },
+                        { name: "Rat", hp: 20, attack: 10, defense: 1, speed: 12, exp: 10, gold: 5, emoji: "🐀", type: "normal", skills: ["quick_attack"] },
+                        { name: "Spider", hp: 35, attack: 12, defense: 4, speed: 10, exp: 18, gold: 12, emoji: "🕷️", type: "normal", skills: ["web", "poison"] },
+                        { name: "Bandit", hp: 40, attack: 15, defense: 5, speed: 9, exp: 25, gold: 20, emoji: "🗡️", type: "human", skills: ["steal"] }
+                    ],
+                    mid: [
+                        { name: "Orc", hp: 80, attack: 18, defense: 8, speed: 7, exp: 45, gold: 30, emoji: "👺", type: "normal", skills: ["rage"] },
+                        { name: "Skeleton", hp: 60, attack: 15, defense: 6, speed: 6, exp: 35, gold: 25, emoji: "💀", type: "undead", skills: ["bone_throw"] },
+                        { name: "Dark Wolf", hp: 70, attack: 20, defense: 5, speed: 15, exp: 40, gold: 28, emoji: "🐺", type: "beast", skills: ["howl", "pack_attack"] },
+                        { name: "Evil Eye", hp: 90, attack: 25, defense: 10, speed: 8, exp: 50, gold: 35, emoji: "👁️", type: "magical", skills: ["mind_blast", "confusion"] },
+                        { name: "Troll", hp: 120, attack: 22, defense: 12, speed: 5, exp: 60, gold: 40, emoji: "👹", type: "giant", skills: ["regenerate", "club_smash"] }
+                    ],
+                    late: [
+                        { name: "Demon", hp: 150, attack: 35, defense: 15, speed: 12, exp: 80, gold: 60, emoji: "😈", type: "demon", skills: ["hellfire", "teleport"] },
+                        { name: "Death Knight", hp: 180, attack: 40, defense: 20, speed: 8, exp: 100, gold: 75, emoji: "⚔️", type: "undead", skills: ["death_strike", "fear"] },
+                        { name: "Dragon Whelp", hp: 200, attack: 45, defense: 18, speed: 10, exp: 120, gold: 90, emoji: "🐲", type: "dragon", skills: ["breath_fire", "wing_attack"] },
+                        { name: "Lich", hp: 160, attack: 50, defense: 25, speed: 6, exp: 110, gold: 85, emoji: "🧙‍♂️", type: "undead", skills: ["dark_magic", "life_drain", "summon"] },
+                        { name: "Ancient Golem", hp: 250, attack: 35, defense: 30, speed: 4, exp: 140, gold: 100, emoji: "🗿", type: "construct", skills: ["earthquake", "stone_throw"] }
+                    ],
+                    elite: [
+                        { name: "Shadow Assassin", hp: 120, attack: 60, defense: 10, speed: 20, exp: 150, gold: 120, emoji: "👤", type: "shadow", skills: ["shadow_strike", "vanish", "critical_hit"] },
+                        { name: "Fire Elemental", hp: 180, attack: 55, defense: 15, speed: 14, exp: 160, gold: 140, emoji: "🔥", type: "elemental", skills: ["fire_storm", "burn", "explosion"] },
+                        { name: "Ice Titan", hp: 300, attack: 40, defense: 25, speed: 6, exp: 200, gold: 180, emoji: "🧊", type: "elemental", skills: ["ice_age", "freeze", "avalanche"] }
+                    ]
+                };
+                
+                this.bosses = [
+                    { 
+                        name: "Goblin King", floor: 25, hp: 400, attack: 35, defense: 20, speed: 10, 
+                        exp: 300, gold: 200, gems: 5, emoji: "👑", type: "boss",
+                        skills: ["war_cry", "summon_goblins", "royal_strike"],
+                        phases: [{ hpThreshold: 0.5, newSkills: ["berserker_rage"] }]
+                    },
+                    { 
+                        name: "Poison Hydra", floor: 50, hp: 700, attack: 50, defense: 30, speed: 8,
+                        exp: 500, gold: 350, gems: 8, emoji: "🐍", type: "boss",
+                        skills: ["poison_breath", "regenerate", "multi_head_attack"],
+                        phases: [{ hpThreshold: 0.3, newSkills: ["toxic_cloud"] }]
+                    },
+                    { 
+                        name: "Crystal Guardian", floor: 75, hp: 1000, attack: 65, defense: 40, speed: 6,
+                        exp: 750, gold: 500, gems: 12, emoji: "💎", type: "boss",
+                        skills: ["crystal_spear", "reflect_magic", "gem_storm"],
+                        phases: [{ hpThreshold: 0.6, newSkills: ["crystal_armor"] }, { hpThreshold: 0.2, newSkills: ["final_nova"] }]
+                    },
+                    { 
+                        name: "Dragon Emperor", floor: 100, hp: 1500, attack: 80, defense: 50, speed: 12,
+                        exp: 1500, gold: 1000, gems: 25, emoji: "🐉", type: "final_boss",
+                        skills: ["dragon_breath", "earthquake", "ancient_magic", "summon_drakes"],
+                        phases: [
+                            { hpThreshold: 0.75, newSkills: ["flame_tornado"] },
+                            { hpThreshold: 0.5, newSkills: ["dragon_roar"] },
+                            { hpThreshold: 0.25, newSkills: ["ultimate_destruction"] }
+                        ]
+                    }
+                ];
+
+                this.specialEvents = [
+                    {
+                        name: "Treasure Vault",
+                        chance: 0.05,
+                        description: "You discovered a hidden treasure vault!",
+                        rewards: { gold: [100, 300], gems: [2, 5], items: ["rare_scroll", "magic_potion"] }
+                    },
+                    {
+                        name: "Ancient Shrine",
+                        chance: 0.03,
+                        description: "An ancient shrine offers you a blessing...",
+                        effects: ["permanent_stat_boost", "skill_upgrade", "curse_removal"]
+                    },
+                    {
+                        name: "Mysterious Trader",
+                        chance: 0.08,
+                        description: "A mysterious trader offers exotic goods...",
+                        shop: "exotic"
+                    },
+                    {
+                        name: "Arena Challenge",
+                        chance: 0.04,
+                        description: "You find an arena with a champion waiting...",
+                        combat: "arena_champion"
+                    }
+                ];
+
+                this.achievements = [
+                    { id: "firstKill", name: "First Blood", description: "Defeat your first monster", condition: "monstersKilled", value: 1 },
+                    { id: "levelUp", name: "Level Up!", description: "Reach level 5", condition: "level", value: 5 },
+                    { id: "firstBoss", name: "Boss Slayer", description: "Defeat your first boss", condition: "bossesDefeated", value: 1 },
+                    { id: "collector", name: "Treasure Hunter", description: "Find 10 treasures", condition: "treasuresFound", value: 10 },
+                    { id: "survivor", name: "Survivor", description: "Reach floor 50", condition: "floorsExplored", value: 50 },
+                    { id: "wealthy", name: "Wealthy Adventurer", description: "Accumulate 1000 gold", condition: "goldTotal", value: 1000 },
+                    { id: "legendary", name: "Legendary Hero", description: "Obtain a legendary item", condition: "legendaryItems", value: 1 },
+                    { id: "master", name: "Master Explorer", description: "Complete the dungeon", condition: "completion", value: 1 }
+                ];
+                
+                this.initializeGame();
+            }
+
+            initializeGame() {
+                this.updateZone();
+                this.applyClassBonuses();
+                this.log("🏰 Welcome to the Ultimate Dungeon RPG - Enhanced Edition!");
+                this.log(`👤 Hero ${this.player.name} (${this.player.class}) enters the enhanced dungeon...`);
+                this.log("🎯 Goal: Conquer 100 floors and face the Dragon Emperor!");
+                this.log("✨ New features: Classes, skills, artifacts, and much more!");
+                this.log("🚪 Click 'Continue Exploring' to begin your epic adventure!");
+            }
+
+            updateZone() {
+                const zone = this.zones.find(z => 
+                    this.currentFloor >= z.floors[0] && this.currentFloor <= z.floors[1]
+                );
+                if (zone) {
+                    this.currentZone = zone.name;
+                    this.updateEnvironment(zone.theme);
+                }
+            }
+
+            updateEnvironment(theme) {
+                const environments = {
+                    "ancient": ["Dusty", "Crumbling", "Mysterious"],
+                    "toxic": ["Poisonous", "Noxious", "Acidic"],
+                    "magical": ["Enchanted", "Glowing", "Mystical"],
+                    "fire": ["Scorching", "Blazing", "Infernal"],
+                    "ice": ["Frozen", "Icy", "Glacial"],
+                    "dark": ["Shadow", "Cursed", "Void"],
+                    "dragon": ["Ancient", "Draconic", "Legendary"]
+                };
+
+                this.environment = environments[theme] ? 
+                    environments[theme][Math.floor(Math.random() * environments[theme].length)] : 
+                    "Normal";
+
+                this.timeOfDay = Math.random() < 0.3 ? "Night" : "Day";
+            }
+
+            applyClassBonuses() {
+                const classData = this.classes[this.player.class];
+                if (classData) {
+                    Object.keys(classData.bonuses).forEach(stat => {
+                        if (stat === "hp") {
+                            this.player.maxHp += classData.bonuses[stat];
+                            this.player.hp += classData.bonuses[stat];
+                        } else if (stat === "mp") {
+                            this.player.maxMp += classData.bonuses[stat];
+                            this.player.mp += classData.bonuses[stat];
+                        } else {
+                            this.player[stat] += classData.bonuses[stat];
+                        }
+                    });
+                }
+            }
+
+            log(message, type = "normal") {
+                this.gameLog.push({ message: `[Floor ${this.currentFloor}] ${message}`, type: type });
+                if (this.gameLog.length > 25) {
+                    this.gameLog.shift();
+                }
+            }
+
+            exploreFloor() {
+                if (this.gameState !== "ready") return;
+                
+                if (this.currentFloor > 100) {
+                    this.victory();
+                    return;
+                }
+
+                this.log(`🚪 Exploring Floor ${this.currentFloor}...`);
+                this.gameState = "exploring";
+                this.player.statistics.floorsExplored = Math.max(this.player.statistics.floorsExplored, this.currentFloor);
+
+                // Update zone and environment
+                this.updateZone();
+
+                // Check for boss floors
+                const boss = this.bosses.find(b => b.floor === this.currentFloor);
+                if (boss) {
+                    this.log(`🔥 BOSS FLOOR! ${boss.emoji} ${boss.name} awaits in the ${this.currentZone}!`, "special");
+                    this.startBossBattle(boss);
+                    return;
+                }
+
+                // Special event check
+                const specialEventChance = Math.random();
+                const availableEvents = this.specialEvents.filter(e => Math.random() < e.chance);
+                
+                if (availableEvents.length > 0) {
+                    this.triggerSpecialEvent(availableEvents[0]);
+                    return;
+                }
+
+                // Regular encounters
+                const encounterChance = Math.random();
+                if (encounterChance < 0.5) {
+                    this.generateRandomEncounter();
+                } else if (encounterChance < 0.7) {
+                    this.findTreasure();
+                } else if (encounterChance < 0.85) {
+                    this.findShop();
+                } else {
+                    this.restArea();
+                }
+            }
+
+            generateRandomEncounter() {
+                let monsterPool;
+                const eliteChance = Math.random() < 0.1; // 10% chance for elite monsters
+                
+                if (eliteChance && this.currentFloor > 30) {
+                    monsterPool = this.monsters.elite;
+                } else if (this.currentFloor <= 25) {
+                    monsterPool = this.monsters.early;
+                } else if (this.currentFloor <= 60) {
+                    monsterPool = this.monsters.mid;
+                } else {
+                    monsterPool = this.monsters.late;
+                }
+
+                const baseMonster = monsterPool[Math.floor(Math.random() * monsterPool.length)];
+                const floorMultiplier = 1 + (this.currentFloor - 1) * 0.08;
+                
+                this.currentEnemy = {
+                    ...baseMonster,
+                    hp: Math.floor(baseMonster.hp * floorMultiplier),
+                    maxHp: Math.floor(baseMonster.hp * floorMultiplier),
+                    attack: Math.floor(baseMonster.attack * floorMultiplier),
+                    defense: Math.floor(baseMonster.defense * floorMultiplier),
+                    speed: Math.floor(baseMonster.speed * floorMultiplier),
+                    exp: Math.floor(baseMonster.exp * floorMultiplier),
+                    gold: Math.floor(baseMonster.gold * floorMultiplier),
+                    statusEffects: []
+                };
+
+                if (eliteChance) {
+                    this.currentEnemy.name = "Elite " + this.currentEnemy.name;
+                    this.currentEnemy.hp = Math.floor(this.currentEnemy.hp * 1.5);
+                    this.currentEnemy.maxHp = this.currentEnemy.hp;
+                    this.currentEnemy.exp = Math.floor(this.currentEnemy.exp * 1.8);
+                    this.currentEnemy.gold = Math.floor(this.currentEnemy.gold * 1.5);
+                }
+
+                this.log(`⚔️ A ${eliteChance ? 'powerful ' : ''}${this.currentEnemy.emoji} ${this.currentEnemy.name} appears in the ${this.environment.toLowerCase()} ${this.currentZone.toLowerCase()}!`, "combat");
+                this.gameState = "combat";
+            }
+
+            startBossBattle(boss) {
+                this.currentEnemy = { 
+                    ...boss,
+                    maxHp: boss.hp,
+                    statusEffects: [],
+                    currentPhase: 0
+                };
+                this.log(`🔥 BOSS BATTLE BEGINS! The ${this.currentEnemy.name} emerges!`, "special");
+                this.gameState = "combat";
+            }
+
+            triggerSpecialEvent(event) {
+                this.log(`✨ SPECIAL EVENT: ${event.description}`, "special");
+                this.gameState = "special_event";
+                
+                // Implementation depends on event type
+                if (event.rewards) {
+                    this.handleSpecialRewards(event.rewards);
+                } else if (event.shop) {
+                    this.gameState = "shop";
+                } else if (event.combat) {
+                    this.generateSpecialCombat(event.combat);
+                }
+            }
+
+            handleSpecialRewards(rewards) {
+                if (rewards.gold) {
+                    const gold = Math.floor(Math.random() * (rewards.gold[1] - rewards.gold[0] + 1)) + rewards.gold[0];
+                    this.player.gold += gold;
+                    this.log(`💰 You found ${gold} gold!`, "treasure");
+                }
+                
+                if (rewards.gems) {
+                    const gems = Math.floor(Math.random() * (rewards.gems[1] - rewards.gems[0] + 1)) + rewards.gems[0];
+                    this.player.gems += gems;
+                    this.log(`💎 You found ${gems} gems!`, "treasure");
+                }
+                
+                this.prepareNextFloor();
+            }
+
+            // Continue with more methods... This is getting quite long!
+            // Let me provide the key combat and progression methods
+
+            performCombatAction(action) {
+                if (this.gameState !== "combat") return false;
+
+                let actionSuccessful = true;
+
+                switch(action) {
+                    case 1: this.playerAttack(); break;
+                    case 2: this.playerMagicAttack(); break;
+                    case 3: this.usePotion(); break;
+                    case 4: this.useEther(); break;
+                    case 5: this.tryFlee(); break;
+                    case 6: this.usePowerStrike(); break;
+                    default: actionSuccessful = false;
+                }
+
+                if (actionSuccessful && this.currentEnemy && this.currentEnemy.hp > 0 && this.gameState === "combat") {
+                    setTimeout(() => this.enemyTurn(), 800);
+                }
+
+                this.updateStatusEffects();
+                return actionSuccessful;
+            }
+
+            playerAttack() {
+                const weaponBonus = this.getWeaponBonus();
+                const critRoll = Math.random() * 100;
+                const isCritical = critRoll < this.player.critChance;
+                
+                let damage = Math.max(1, (this.player.attack + weaponBonus + Math.floor(Math.random() * 10)) - this.currentEnemy.defense);
+                
+                if (isCritical) {
+                    damage = Math.floor(damage * 2);
+                    this.log(`💥 CRITICAL HIT! You deal ${damage} damage!`, "combat");
+                } else {
+                    this.log(`⚔️ You attack for ${damage} damage!`, "combat");
+                }
+
+                this.currentEnemy.hp = Math.max(0, this.currentEnemy.hp - damage);
+                
+                if (this.currentEnemy.hp <= 0) {
+                    this.defeatEnemy();
+                }
+            }
+
+            usePowerStrike() {
+                if (this.player.stamina < 15) {
+                    this.log("⚡ Not enough stamina for Power Strike!", "combat");
+                    return;
+                }
+
+                this.player.stamina -= 15;
+                const weaponBonus = this.getWeaponBonus();
+                const damage = Math.floor((this.player.attack + weaponBonus) * 2.5);
+                
+                this.currentEnemy.hp = Math.max(0, this.currentEnemy.hp - damage);
+                this.log(`⚡ POWER STRIKE! You unleash devastating power for ${damage} damage!`, "combat");
+                
+                if (this.currentEnemy.hp <= 0) {
+                    this.defeatEnemy();
+                }
+            }
+
+            defeatEnemy() {
+                const enemy = this.currentEnemy;
+                this.player.killStreak++;
+                this.player.statistics.monstersKilled++;
+                
+                if (enemy.type === "boss" || enemy.type === "final_boss") {
+                    this.player.statistics.bossesDefeated++;
+                }
+
+                this.log(`✅ ${enemy.emoji} ${enemy.name} defeated!`, "combat");
+                this.log(`💰 Gained ${enemy.gold} gold!`, "treasure");
+                this.log(`⭐ Gained ${enemy.exp} EXP!`, "level");
+
+                this.player.gold += enemy.gold;
+                this.player.exp += enemy.exp;
+                this.player.statistics.goldEarned += enemy.gold;
+
+                if (enemy.gems) {
+                    this.player.gems += enemy.gems;
+                    this.log(`💎 Gained ${enemy.gems} gems!`, "treasure");
+                }
+
+                if (this.player.exp >= this.player.expToNext) {
+                    this.levelUp();
+                }
+
+                // Random item drop
+                if (Math.random() < 0.4) {
+                    this.randomItemDrop();
+                }
+
+                this.checkAchievements();
+                this.currentEnemy = null;
+                
+                // Boss defeated, advance multiple floors
+                if (enemy.type === "boss" || enemy.type === "final_boss") {
+                    this.log(`🏆 BOSS DEFEATED! Advancing 5 floors and gaining bonus rewards!`, "special");
+                    this.player.gems += 3;
+                    this.currentFloor += 4; // +4 because prepareNextFloor() adds 1
+                }
+                
+                this.prepareNextFloor();
+            }
+
+            levelUp() {
+                this.player.level++;
+                this.player.exp -= this.player.expToNext;
+                this.player.expToNext = Math.floor(this.player.expToNext * 1.3);
+
+                const hpGain = Math.floor(Math.random() * 25) + 20;
+                const mpGain = Math.floor(Math.random() * 15) + 10;
+                const staminaGain = Math.floor(Math.random() * 15) + 10;
+                const atkGain = Math.floor(Math.random() * 6) + 4;
+                const defGain = Math.floor(Math.random() * 4) + 3;
+                const magGain = Math.floor(Math.random() * 5) + 3;
+                const speedGain = Math.floor(Math.random() * 3) + 1;
+                const luckGain = Math.floor(Math.random() * 2) + 1;
+
+                this.player.maxHp += hpGain;
+                this.player.hp += hpGain;
+                this.player.maxMp += mpGain;
+                this.player.mp += mpGain;
+                this.player.maxStamina += staminaGain;
+                this.player.stamina += staminaGain;
+                this.player.attack += atkGain;
+                this.player.defense += defGain;
+                this.player.magic += magGain;
+                this.player.speed += speedGain;
+                this.player.luck += luckGain;
+                this.player.critChance += 1;
+
+                this.log(`🎉 LEVEL UP! Now level ${this.player.level}!`, "level");
+                this.log(`📈 All stats increased significantly! You feel much stronger!`, "level");
+                
+                // Skill point gain
+                this.player.gems += 2;
+                this.log(`💎 Gained 2 skill gems for leveling up!`, "level");
+            }
+
+            prepareNextFloor() {
+                this.currentFloor++;
+                this.gameState = "ready";
+                
+                // Restore some stamina when advancing floors
+                this.player.stamina = Math.min(this.player.maxStamina, this.player.stamina + 20);
+                
+                if (this.currentFloor <= 100) {
+                    this.log(`🚪 Floor ${this.currentFloor} awaits. The adventure continues...`);
+                } else {
+                    this.victory();
+                }
+            }
+
+            checkAchievements() {
+                this.achievements.forEach(achievement => {
+                    if (!this.player.achievements.includes(achievement.id)) {
+                        let shouldUnlock = false;
+                        
+                        switch(achievement.condition) {
+                            case "monstersKilled":
+                                shouldUnlock = this.player.statistics.monstersKilled >= achievement.value;
+                                break;
+                            case "level":
+                                shouldUnlock = this.player.level >= achievement.value;
+                                break;
+                            case "bossesDefeated":
+                                shouldUnlock = this.player.statistics.bossesDefeated >= achievement.value;
+                                break;
+                            case "treasuresFound":
+                                shouldUnlock = this.player.statistics.treasuresFound >= achievement.value;
+                                break;
+                            case "floorsExplored":
+                                shouldUnlock = this.player.statistics.floorsExplored >= achievement.value;
+                                break;
+                        }
+                        
+                        if (shouldUnlock) {
+                            this.player.achievements.push(achievement.id);
+                            this.log(`🏆 ACHIEVEMENT UNLOCKED: ${achievement.name}!`, "special");
+                            this.player.gems += 5; // Reward for achievements
+                        }
+                    }
+                });
+            }
+
+            // Equipment and utility methods
+            getWeaponBonus() {
+                return this.equipment.weapons[this.player.equipment.weapon]?.attack || 0;
+            }
+
+            getArmorBonus() {
+                return this.equipment.armor[this.player.equipment.armor]?.defense || 0;
+            }
+
+            getAccessoryBonus(stat) {
+                return this.equipment.accessories[this.player.equipment.accessory]?.[stat] || 0;
+            }
+
+                        victory() {
+                this.gameState = "victory";
+                this.log(`🏆🎉 ULTIMATE VICTORY! 🎉🏆`, "special");
+                this.log(`👑 You have conquered the 100-Floor Ultimate Dungeon!`, "special");
+                this.log(`🐉 The Dragon Emperor has been vanquished!`, "special");
+                this.log(`⭐ Final Level: ${this.player.level}`, "special");
+                this.log(`💰 Final Gold: ${this.player.gold}`, "special");
+                this.log(`💎 Final Gems: ${this.player.gems}`, "special");
+                this.log(`🗡️ Monsters Defeated: ${this.player.statistics.monstersKilled}`, "special");
+                this.log(`👑 Bosses Slain: ${this.player.statistics.bossesDefeated}`, "special");
+                this.log(`🎯 You are the Ultimate Dungeon Champion!`, "special");
+                
+                // Unlock final achievement
+                if (!this.player.achievements.includes("master")) {
+                    this.player.achievements.push("master");
+                    this.log(`🏆 FINAL ACHIEVEMENT: Master Explorer unlocked!`, "special");
+                }
+            }
+
+            gameOver() {
+                this.gameState = "gameOver";
+                this.log(`💀 GAME OVER 💀`, "combat");
+                this.log(`⚰️ Your adventure ends on floor ${this.currentFloor}...`, "combat");
+                this.log(`⭐ Final Level: ${this.player.level}`, "combat");
+                this.log(`💰 Final Gold: ${this.player.gold}`, "combat");
+                this.log(`🗡️ Monsters Defeated: ${this.player.statistics.monstersKilled}`, "combat");
+                this.log(`🏆 Achievements Earned: ${this.player.achievements.length}`, "combat");
+            }
+
+            // Additional combat methods
+            playerMagicAttack() {
+                if (this.player.mp < 10) {
+                    this.log("💙 Not enough MP for magic attack!", "combat");
+                    return;
+                }
+
+                this.player.mp -= 10;
+                const magicBonus = this.getAccessoryBonus("magic");
+                const damage = Math.floor((this.player.magic + magicBonus + Math.floor(Math.random() * 20)) * 1.8);
+                this.currentEnemy.hp = Math.max(0, this.currentEnemy.hp - damage);
+                this.log(`🔮 Magic attack deals ${damage} arcane damage!`, "combat");
+                
+                if (this.currentEnemy.hp <= 0) {
+                    this.defeatEnemy();
+                }
+            }
+
+            usePotion() {
+                if (this.player.inventory.potions <= 0) {
+                    this.log("🧪 No potions left!", "combat");
+                    return;
+                }
+
+                this.player.inventory.potions--;
+                const healing = Math.floor(this.player.maxHp * 0.6);
+                this.player.hp = Math.min(this.player.maxHp, this.player.hp + healing);
+                this.log(`🧪 Used healing potion! Restored ${healing} HP!`, "combat");
+            }
+
+            useEther() {
+                if (this.player.inventory.ethers <= 0) {
+                    this.log("🔵 No ethers left!", "combat");
+                    return;
+                }
+
+                this.player.inventory.ethers--;
+                const mpRestore = Math.floor(this.player.maxMp * 0.8);
+                this.player.mp = Math.min(this.player.maxMp, this.player.mp + mpRestore);
+                this.log(`🔵 Used ether! Restored ${mpRestore} MP!`, "combat");
+            }
+
+            tryFlee() {
+                if (this.currentEnemy.type === "boss" || this.currentEnemy.type === "final_boss") {
+                    this.log("🚫 Cannot flee from boss battles!", "combat");
+                    return;
+                }
+
+                const fleeChance = Math.max(0.3, (this.player.speed - this.currentEnemy.speed) * 0.1 + 0.5);
+                if (Math.random() < fleeChance) {
+                    this.log("🏃 Successfully fled from battle!", "combat");
+                    this.currentEnemy = null;
+                    this.player.stamina -= 10; // Fleeing costs stamina
+                    this.prepareNextFloor();
+                } else {
+                    this.log("🚫 Couldn't escape! The enemy blocks your path!", "combat");
+                }
+            }
+
+            enemyTurn() {
+                if (!this.currentEnemy || this.currentEnemy.hp <= 0) return;
+
+                // Boss phase transitions
+                if (this.currentEnemy.phases) {
+                    this.checkBossPhase();
+                }
+
+                // Enemy uses skills or regular attack
+                if (this.currentEnemy.skills && Math.random() < 0.4) {
+                    this.enemyUseSkill();
+                } else {
+                    this.enemyNormalAttack();
+                }
+
+                if (this.player.hp <= 0) {
+                    this.gameOver();
+                }
+            }
+
+            enemyNormalAttack() {
+                const damage = Math.max(1, (this.currentEnemy.attack + Math.floor(Math.random() * 10)) - (this.player.defense + this.getArmorBonus()));
+                this.player.hp = Math.max(0, this.player.hp - damage);
+                this.log(`${this.currentEnemy.emoji} ${this.currentEnemy.name} attacks for ${damage} damage!`, "combat");
+            }
+
+            enemyUseSkill() {
+                const skill = this.currentEnemy.skills[Math.floor(Math.random() * this.currentEnemy.skills.length)];
+                
+                switch(skill) {
+                    case "poison":
+                        this.log(`${this.currentEnemy.emoji} ${this.currentEnemy.name} uses Poison Attack!`, "combat");
+                        this.addStatusEffect("poison", 3);
+                        break;
+                    case "rage":
+                        this.log(`${this.currentEnemy.emoji} ${this.currentEnemy.name} enters a rage! Attack increased!`, "combat");
+                        this.currentEnemy.attack += 5;
+                        break;
+                    case "hellfire":
+                        const damage = Math.floor(this.currentEnemy.attack * 1.8);
+                        this.player.hp = Math.max(0, this.player.hp - damage);
+                        this.log(`🔥 ${this.currentEnemy.name} unleashes Hellfire for ${damage} damage!`, "combat");
+                        break;
+                    case "dragon_breath":
+                        const breathDamage = Math.floor(this.currentEnemy.attack * 2.2);
+                        this.player.hp = Math.max(0, this.player.hp - breathDamage);
+                        this.log(`🐉 Dragon Breath deals ${breathDamage} devastating damage!`, "combat");
+                        break;
+                    default:
+                        this.enemyNormalAttack();
+                }
+            }
+
+            checkBossPhase() {
+                const hpPercent = this.currentEnemy.hp / this.currentEnemy.maxHp;
+                const currentPhase = this.currentEnemy.currentPhase || 0;
+                
+                if (this.currentEnemy.phases[currentPhase] && hpPercent <= this.currentEnemy.phases[currentPhase].hpThreshold) {
+                    this.currentEnemy.currentPhase = currentPhase + 1;
+                    this.log(`🔥 ${this.currentEnemy.name} enters a new phase! New abilities unlocked!`, "special");
+                    this.currentEnemy.skills.push(...this.currentEnemy.phases[currentPhase].newSkills);
+                }
+            }
+
+            addStatusEffect(effect, duration) {
+                this.player.statusEffects.push({ effect, duration });
+            }
+
+            updateStatusEffects() {
+                this.player.statusEffects = this.player.statusEffects.filter(status => {
+                    status.duration--;
+                    
+                    if (status.effect === "poison" && status.duration > 0) {
+                        const poisonDamage = Math.floor(this.player.maxHp * 0.05);
+                        this.player.hp = Math.max(1, this.player.hp - poisonDamage);
+                        this.log(`☠️ Poison deals ${poisonDamage} damage!`, "combat");
+                    }
+                    
+                    return status.duration > 0;
+                });
+            }
+
+            // Treasure and exploration methods
+            findTreasure() {
+                const treasures = [
+                    { type: "gold", amount: [50, 150] },
+                    { type: "potion", amount: [1, 4] },
+                    { type: "ether", amount: [1, 2] },
+                    { type: "gems", amount: [1, 3] },
+                    { type: "exp", amount: [30, 80] },
+                    { type: "scroll", amount: [1, 1] }
+                ];
+
+                const treasure = treasures[Math.floor(Math.random() * treasures.length)];
+                const amount = Math.floor(Math.random() * (treasure.amount[1] - treasure.amount[0] + 1)) + treasure.amount[0];
+                
+                this.log(`💎 Found treasure chest in the ${this.environment.toLowerCase()} chamber!`, "treasure");
+                this.player.statistics.treasuresFound++;
+                
+                switch(treasure.type) {
+                    case "gold":
+                        this.player.gold += amount;
+                        this.log(`💰 Found ${amount} gold coins!`, "treasure");
+                        break;
+                    case "potion":
+                        this.player.inventory.potions += amount;
+                        this.log(`🧪 Found ${amount} healing potion(s)!`, "treasure");
+                        break;
+                    case "ether":
+                        this.player.inventory.ethers += amount;
+                        this.log(`🔵 Found ${amount} magical ether(s)!`, "treasure");
+                        break;
+                    case "gems":
+                        this.player.gems += amount;
+                        this.log(`💎 Found ${amount} precious gem(s)!`, "treasure");
+                        break;
+                    case "exp":
+                        this.player.exp += amount;
+                        this.log(`⭐ Gained ${amount} bonus experience!`, "level");
+                        if (this.player.exp >= this.player.expToNext) {
+                            this.levelUp();
+                        }
+                        break;
+                    case "scroll":
+                        this.player.inventory.scrolls += amount;
+                        this.log(`📜 Found ${amount} magical scroll(s)!`, "treasure");
+                        break;
+                }
+
+                this.prepareNextFloor();
+            }
+
+            findShop() {
+                const shopTypes = ["General Store", "Weapon Smith", "Armor Shop", "Magic Emporium", "Artifact Dealer"];
+                const shopType = shopTypes[Math.floor(Math.random() * shopTypes.length)];
+                
+                this.log(`🏪 Found a ${shopType} run by a friendly merchant!`, "treasure");
+                this.merchantType = shopType;
+                this.gameState = "shop";
+            }
+
+            restArea() {
+                this.log(`🛏️ Found a safe sanctuary with healing springs!`, "treasure");
+                const hpRestore = Math.floor(this.player.maxHp * 0.4);
+                const mpRestore = Math.floor(this.player.maxMp * 0.6);
+                const staminaRestore = Math.floor(this.player.maxStamina * 0.8);
+                
+                this.player.hp = Math.min(this.player.maxHp, this.player.hp + hpRestore);
+                this.player.mp = Math.min(this.player.maxMp, this.player.mp + mpRestore);
+                this.player.stamina = Math.min(this.player.maxStamina, this.player.stamina + staminaRestore);
+                
+                // Remove negative status effects
+                this.player.statusEffects = [];
+                
+                this.log(`💤 Fully rested! Restored ${hpRestore} HP, ${mpRestore} MP, ${staminaRestore} Stamina!`, "treasure");
+                this.log(`✨ All negative effects removed!`, "treasure");
+                this.prepareNextFloor();
+            }
+
+            randomItemDrop() {
+                const drops = ["potion", "ether", "gold", "gems", "scroll"];
+                const drop = drops[Math.floor(Math.random() * drops.length)];
+
+                switch(drop) {
+                    case "potion":
+                        this.player.inventory.potions++;
+                        this.log(`🧪 Enemy dropped a healing potion!`, "treasure");
+                        break;
+                    case "ether":
+                        this.player.inventory.ethers++;
+                        this.log(`🔵 Enemy dropped an ether!`, "treasure");
+                        break;
+                    case "gold":
+                        const goldDrop = Math.floor(Math.random() * 40) + 15;
+                        this.player.gold += goldDrop;
+                        this.log(`💰 Enemy dropped ${goldDrop} extra gold!`, "treasure");
+                        break;
+                    case "gems":
+                        this.player.gems += 1;
+                        this.log(`💎 Enemy dropped a precious gem!`, "treasure");
+                        break;
+                    case "scroll":
+                        this.player.inventory.scrolls++;
+                        this.log(`📜 Enemy dropped a magic scroll!`, "treasure");
+                        break;
+                }
+            }
+
+            // Shop system
+            buyFromShop(option) {
+                switch(option) {
+                    case 1: // Potion
+                        if (this.player.gold >= 50) {
+                            this.player.gold -= 50;
+                            this.player.inventory.potions++;
+                            this.log(`🧪 Bought healing potion for 50 gold!`, "treasure");
+                        } else {
+                            this.log(`💸 Not enough gold for potion!`, "combat");
+                        }
+                        break;
+                    case 2: // Ether
+                        if (this.player.gold >= 80) {
+                            this.player.gold -= 80;
+                            this.player.inventory.ethers++;
+                            this.log(`🔵 Bought ether for 80 gold!`, "treasure");
+                        } else {
+                            this.log(`💸 Not enough gold for ether!`, "combat");
+                        }
+                        break;
+                    case 3: // Weapon upgrade
+                        const weaponUpgrade = this.getNextWeapon(this.player.equipment.weapon);
+                        if (weaponUpgrade && this.player.gold >= weaponUpgrade.price) {
+                            this.player.gold -= weaponUpgrade.price;
+                            this.player.equipment.weapon = weaponUpgrade.name;
+                            this.log(`🗡️ Bought ${weaponUpgrade.name} for ${weaponUpgrade.price} gold!`, "treasure");
+                        } else {
+                            this.log(`💸 Cannot afford weapon upgrade or already have the best!`, "combat");
+                        }
+                        break;
+                    case 4: // Armor upgrade
+                        const armorUpgrade = this.getNextArmor(this.player.equipment.armor);
+                        if (armorUpgrade && this.player.gold >= armorUpgrade.price) {
+                            this.player.gold -= armorUpgrade.price;
+                            this.player.equipment.armor = armorUpgrade.name;
+                            this.log(`🛡️ Bought ${armorUpgrade.name} for ${armorUpgrade.price} gold!`, "treasure");
+                        } else {
+                            this.log(`💸 Cannot afford armor upgrade or already have the best!`, "combat");
+                        }
+                        break;
+                    case 5: // Leave shop
+                        this.log(`🚪 Left the shop. The merchant waves goodbye!`, "treasure");
+                        this.prepareNextFloor();
+                        break;
+                    case 7: // Accessory
+                        this.buyAccessory();
+                        break;
+                }
+            }
+
+            buyAccessory() {
+                const accessories = Object.keys(this.equipment.accessories).filter(acc => acc !== "None");
+                const accessory = accessories[Math.floor(Math.random() * accessories.length)];
+                const price = this.equipment.accessories[accessory].value;
+                
+                if (this.player.gold >= price) {
+                    this.player.gold -= price;
+                    this.player.equipment.accessory = accessory;
+                    this.log(`💍 Bought ${accessory} for ${price} gold!`, "treasure");
+                } else {
+                    this.log(`💸 Not enough gold for accessories!`, "combat");
+                }
+            }
+
+            getNextWeapon(currentWeapon) {
+                const weapons = Object.keys(this.equipment.weapons);
+                const currentIndex = weapons.indexOf(currentWeapon);
+                if (currentIndex < weapons.length - 1) {
+                    const nextWeapon = weapons[currentIndex + 1];
+                    return {
+                        name: nextWeapon,
+                        price: this.equipment.weapons[nextWeapon].value,
+                        bonus: this.equipment.weapons[nextWeapon].attack
+                    };
+                }
+                return null;
+            }
+
+            getNextArmor(currentArmor) {
+                const armors = Object.keys(this.equipment.armor);
+                const currentIndex = armors.indexOf(currentArmor);
+                if (currentIndex < armors.length - 1) {
+                    const nextArmor = armors[currentIndex + 1];
+                    return {
+                        name: nextArmor,
+                        price: this.equipment.armor[nextArmor].value,
+                        bonus: this.equipment.armor[nextArmor].defense
+                    };
+                }
+                return null;
+            }
+
+            // Special actions
+            useSpecialAction() {
+                if (this.player.gems < 5) {
+                    this.log(`💎 Need 5 gems for special actions!`, "combat");
+                    return;
+                }
+
+                const actions = [
+                    "Reveal hidden treasure",
+                    "Skip to next floor",
+                    "Heal to full",
+                    "Gain bonus EXP",
+                    "Find rare item"
+                ];
+
+                const action = actions[Math.floor(Math.random() * actions.length)];
+                this.player.gems -= 5;
+
+                switch(action) {
+                    case "Reveal hidden treasure":
+                        this.findTreasure();
+                        break;
+                    case "Skip to next floor":
+                        this.log(`✨ Used mystical power to skip ahead!`, "special");
+                        this.prepareNextFloor();
+                        break;
+                    case "Heal to full":
+                        this.player.hp = this.player.maxHp;
+                        this.player.mp = this.player.maxMp;
+                        this.player.stamina = this.player.maxStamina;
+                        this.log(`✨ Fully healed by divine power!`, "special");
+                        break;
+                    case "Gain bonus EXP":
+                        const bonusExp = Math.floor(this.player.expToNext * 0.3);
+                        this.player.exp += bonusExp;
+                        this.log(`✨ Gained ${bonusExp} bonus experience!`, "level");
+                        if (this.player.exp >= this.player.expToNext) {
+                            this.levelUp();
+                        }
+                        break;
+                    case "Find rare item":
+                        this.player.inventory.scrolls += 2;
+                        this.log(`✨ Found 2 rare magic scrolls!`, "treasure");
+                        break;
+                }
+            }
+
+            searchArea() {
+                if (this.player.stamina < 15) {
+                    this.log(`⚡ Not enough stamina to search thoroughly!`, "combat");
+                    return;
+                }
+
+                this.player.stamina -= 15;
+                const searchChance = Math.random();
+
+                if (searchChance < 0.3) {
+                    const goldFound = Math.floor(Math.random() * 30) + 10;
+                    this.player.gold += goldFound;
+                    this.log(`🔍 Thorough search revealed ${goldFound} hidden gold!`, "treasure");
+                } else if (searchChance < 0.5) {
+                    this.player.inventory.potions++;
+                    this.log(`🔍 Found a hidden potion in a secret compartment!`, "treasure");
+                } else if (searchChance < 0.7) {
+                    this.log(`🔍 Found nothing of value after searching...`, "normal");
+                } else {
+                    // Trigger encounter
+                    this.log(`🔍 Your search disturbed something dangerous!`, "combat");
+                    this.generateRandomEncounter();
+                }
+            }
+
+            restHere() {
+                if (this.player.stamina < 10) {
+                    this.log(`⚡ Too exhausted to rest properly!`, "combat");
+                    return;
+                }
+
+                this.player.stamina -= 10;
+                const hpRestore = Math.floor(this.player.maxHp * 0.2);
+                const mpRestore = Math.floor(this.player.maxMp * 0.3);
+
+                this.player.hp = Math.min(this.player.maxHp, this.player.hp + hpRestore);
+                this.player.mp = Math.min(this.player.maxMp, this.player.mp + mpRestore);
+
+                this.log(`😴 Took a quick rest. Restored ${hpRestore} HP and ${mpRestore} MP.`, "treasure");
+            }
+
+            // Get game state for UI
+            getGameState() {
+                return {
+                    player: this.player,
+                    currentFloor: this.currentFloor,
+                    gameState: this.gameState,
+                    currentEnemy: this.currentEnemy,
+                    currentZone: this.currentZone,
+                    environment: this.environment,
+                    timeOfDay: this.timeOfDay,
+                    merchantType: this.merchantType,
+                    log: this.gameLog.slice(-20)
+                };
+            }
+        }
+
+        // Enhanced UI Management
+        class EnhancedDungeonRPGUI {
+            constructor() {
+                this.game = new EnhancedDungeonRPG();
+                this.lastUpdateState = null;
+                this.updateUI();
+                this.startGameLoop();
+            }
+
+            startGameLoop() {
+                setInterval(() => {
+                    const currentState = JSON.stringify(this.game.getGameState());
+                    if (currentState !== this.lastUpdateState) {
+                        this.updateUI();
+                        this.lastUpdateState = currentState;
+                    }
+                }, 800);
+            }
+
+            updateUI() {
+                const state = this.game.getGameState();
+                
+                // Update player stats
+                document.getElementById('playerLevel').textContent = state.player.level;
+                document.getElementById('playerGold').textContent = state.player.gold;
+                document.getElementById('playerGems').textContent = state.player.gems;
+                document.getElementById('playerAttack').textContent = state.player.attack + this.game.getWeaponBonus();
+                document.getElementById('playerDefense').textContent = state.player.defense + this.game.getArmorBonus();
+                document.getElementById('playerMagic').textContent = state.player.magic + this.game.getAccessoryBonus("magic");
+                
+                // Update class display
+                document.getElementById('classDisplay').textContent = `${this.getClassEmoji(state.player.class)} ${state.player.class} - Level ${state.player.level}`;
+                
+                // Update HP/MP/Stamina/EXP
+                document.getElementById('playerHp').textContent = state.player.hp;
+                document.getElementById('playerMaxHp').textContent = state.player.maxHp;
+                document.getElementById('playerMp').textContent = state.player.mp;
+                document.getElementById('playerMaxMp').textContent = state.player.maxMp;
+                document.getElementById('playerStamina').textContent = state.player.stamina;
+                document.getElementById('playerMaxStamina').textContent = state.player.maxStamina;
+                document.getElementById('playerExp').textContent = state.player.exp;
+                document.getElementById('playerExpNext').textContent = state.player.expToNext;
+
+                // Update progress bars
+                const hpPercent = (state.player.hp / state.player.maxHp) * 100;
+                const mpPercent = (state.player.mp / state.player.maxMp) * 100;
+                const staminaPercent = (state.player.stamina / state.player.maxStamina) * 100;
+                const expPercent = (state.player.exp / state.player.expToNext) * 100;
+                
+                document.getElementById('hpBar').style.width = hpPercent + '%';
+                document.getElementById('mpBar').style.width = mpPercent + '%';
+                document.getElementById('staminaBar').style.width = staminaPercent + '%';
+                document.getElementById('expBar').style.width = expPercent + '%';
+
+                // Update mini stats
+                document.getElementById('critChance').textContent = state.player.critChance + '%';
+                document.getElementById('speed').textContent = state.player.speed;
+                document.getElementById('luck').textContent = state.player.luck;
+                document.getElementById('killStreak').textContent = state.player.killStreak;
+
+                // Update inventory
+                document.getElementById('potionCount').textContent = state.player.inventory.potions;
+                document.getElementById('etherCount').textContent = state.player.inventory.ethers;
+                document.getElementById('weaponName').textContent = state.player.equipment.weapon;
+                document.getElementById('armorName').textContent = state.player.equipment.armor;
+                document.getElementById('accessoryName').textContent = state.player.equipment.accessory;
+                document.getElementById('artifactName').textContent = state.player.equipment.artifact;
+
+                // Update floor and zone info
+                document.getElementById('floorDisplay').textContent = `🏰 Floor ${state.currentFloor} / 100`;
+                document.getElementById('currentZone').textContent = state.currentZone;
+                document.getElementById('environment').textContent = state.environment;
+                document.getElementById('dungeonTime').textContent = state.timeOfDay;
+
+                // Update status effects
+                this.updateStatusEffects(state.player.statusEffects);
+
+                // Update achievements
+                this.updateAchievements(state.player.achievements);
+
+                // Update game area
+                this.updateGameArea(state);
+
+                // Update log
+                this.updateGameLog(state.log);
+            }
+
+            getClassEmoji(className) {
+                const emojis = {
+                    "Warrior": "🗡️",
+                    "Mage": "🔮",
+                    "Rogue": "🗡️",
+                    "Paladin": "⚔️",
+                    "Necromancer": "💀"
+                };
+                return emojis[className] || "⚔️";
+            }
+
+            updateStatusEffects(effects) {
+                const container = document.getElementById('statusEffects');
+                container.innerHTML = '';
+                
+                effects.forEach(effect => {
+                    const div = document.createElement('div');
+                    div.className = 'status-effect';
+                    div.textContent = `${this.getEffectEmoji(effect.effect)} ${effect.duration}`;
+                    container.appendChild(div);
+                });
+            }
+
+            getEffectEmoji(effect) {
+                const emojis = {
+                    "poison": "☠️",
+                    "burn": "🔥",
+                    "freeze": "🧊",
+                    "blessed": "✨",
+                    "cursed": "💀"
+                };
+                return emojis[effect] || "❓";
+            }
+
+            updateAchievements(playerAchievements) {
+                this.game.achievements.forEach(achievement => {
+                    const element = document.getElementById(achievement.id);
+                    if (element) {
+                        if (playerAchievements.includes(achievement.id)) {
+                            element.classList.add('unlocked');
+                            element.textContent = `✅ ${achievement.name}`;
+                        } else {
+                            element.classList.remove('unlocked');
+                            element.textContent = `🔒 ${achievement.name}`;
+                        }
+                    }
+                });
+            }
+
+            updateGameArea(state) {
+                // Hide all areas
+                document.getElementById('exploreArea').style.display = 'none';
+                document.getElementById('combatArea').style.display = 'none';
+                document.getElementById('shopArea').style.display = 'none';
+                document.getElementById('specialEventArea').style.display = 'none';
+                document.getElementById('bossArea').style.display = 'none';
+                document.getElementById('victoryArea').style.display = 'none';
+                document.getElementById('gameOverArea').style.display = 'none';
+
+                switch(state.gameState) {
+                    case "combat":
+                        if (state.currentEnemy.type === "boss" || state.currentEnemy.type === "final_boss") {
+                            document.getElementById('bossArea').style.display = 'block';
+                            document.getElementById('bossInfo').innerHTML = `
+                                <p>${state.currentEnemy.emoji} ${state.currentEnemy.name}</p>
+                                <p>⚔️ A legendary foe awaits!</p>
+                            `;
+                        }
+                        document.getElementById('combatArea').style.display = 'block';
+                        this.updateCombatArea(state.currentEnemy);
+                        break;
+                    case "shop":
+                        document.getElementById('shopArea').style.display = 'block';
+                        document.getElementById('merchantType').textContent = state.merchantType || "Mysterious Merchant";
+                        this.updateShopArea();
+                        break;
+                    case "victory":
+                        document.getElementById('victoryArea').style.display = 'block';
+                        document.getElementById('finalStats').innerHTML = `
+                            <p>⭐ Final Level: ${state.player.level}</p>
+                            <p>💰 Final Gold: ${state.player.gold}</p>
+                            <p>💎 Final Gems: ${state.player.gems}</p>
+                            <p>🗡️ Monsters Defeated: ${state.player.statistics.monstersKilled}</p>
+                            <p>👑 Bosses Slain: ${state.player.statistics.bossesDefeated}</p>
+                            <p>🏆 Achievements: ${state.player.achievements.length}/${this.game.achievements.length}</p>
+                        `;
+                        break;
+                    case "gameOver":
+                        document.getElementById('gameOverArea').style.display = 'block';
+                        document.getElementById('gameOverStats').innerHTML = `
+                            <p>🏰 Reached Floor: ${state.currentFloor}</p>
+                            <p>⭐ Final Level: ${state.player.level}</p>
+                            <p>💰 Final Gold: ${state.player.gold}</p>
+                            <p>🗡️ Monsters Defeated: ${state.player.statistics.monstersKilled}</p>
+                            <p>🏆 Achievements: ${state.player.achievements.length}/${this.game.achievements.length}</p>
+                        `;
+                        break;
+                    default:
+                        document.getElementById('exploreArea').style.display = 'block';
+                }
+            }
+
+            updateCombatArea(enemy) {
+                if (!enemy) return;
+                
+                document.getElementById('enemyEmoji').textContent = enemy.emoji;
+                document.getElementById('enemyName').textContent = enemy.name;
+                document.getElementById('enemyType').textContent = `Type: ${enemy.type}`;
+                document.getElementById('enemyHp').textContent = enemy.hp;
+                document.getElementById('enemyMaxHp').textContent = enemy.maxHp;
+                
+                const enemyHpPercent = (enemy.hp / enemy.maxHp) * 100;
+                document.getElementById('enemyHpBar').style.width = enemyHpPercent + '%';
+
+                // Update enemy status effects
+                const container = document.getElementById('enemyStatusEffects');
+                container.innerHTML = '';
+                if (enemy.statusEffects) {
+                    enemy.statusEffects.forEach(effect => {
+                        const div = document.createElement('div');
+                        div.className = 'status-effect';
+                        div.textContent = `${this.getEffectEmoji(effect.effect)} ${effect.duration}`;
+                        container.appendChild(div);
+                    });
+                }
+            }
+
+            updateShopArea() {
+                const weaponUpgrade = this.game.getNextWeapon(this.game.player.equipment.weapon);
+                const armorUpgrade = this.game.getNextArmor(this.game.player.equipment.armor);
+
+                const weaponBtn = document.getElementById('weaponUpgrade');
+                const armorBtn = document.getElementById('armorUpgrade');
+
+                if (weaponUpgrade) {
+                    weaponBtn.textContent = `🗡️ ${weaponUpgrade.name} (${weaponUpgrade.price}g)`;
+                    weaponBtn.disabled = this.game.player.gold < weaponUpgrade.price;
+                } else {
+                    weaponBtn.textContent = "🗡️ Max Weapon";
+                    weaponBtn.disabled = true;
+                }
+
+                if (armorUpgrade) {
+                    armorBtn.textContent = `🛡️ ${armorUpgrade.name} (${armorUpgrade.price}g)`;
+                    armorBtn.disabled = this.game.player.gold < armorUpgrade.price;
+                } else {
+                    armorBtn.textContent = "🛡️ Max Armor";
+                    armorBtn.disabled = true;
+                }
+            }
+
+            updateGameLog(messages) {
+                const logElement = document.getElementById('gameLog');
+                logElement.innerHTML = '';
+                
+                messages.forEach(msg => {
+                    const entry = document.createElement('div');
+                    entry.className = 'log-entry';
+                    
+                    switch(msg.type) {
+                        case "level":
+                            entry.className += ' log-level';
+                            break;
+                        case "combat":
+                            entry.className += ' log-combat';
+                            break;
+                        case "treasure":
+                            entry.className += ' log-treasure';
+                            break;
+                        case "special":
+                            entry.className += ' log-special';
+                            break;
+                    }
+                    
+                    entry.textContent = msg.message;
+                    logElement.appendChild(entry);
+                });
+                
+                logElement.scrollTop = logElement.scrollHeight;
+            }
+        }
+
+        // Initialize game
+        let gameUI;
+        window.onload = function() {
+            gameUI = new EnhancedDungeonRPGUI();
+        };
+
+        // Global functions for button clicks
+        function nextAction() {
+            gameUI.game.exploreFloor();
+        }
+
+        function performAction(action) {
+            gameUI.game.performCombatAction(action);
+        }
+
+        function buyItem(option) {
+            gameUI.game.buyFromShop(option);
+        }
+
+        function useSpecialAction() {
+            gameUI.game.useSpecialAction();
+        }
+
+        function searchArea() {
+            gameUI.game.searchArea();
+        }
+
+        function restHere() {
+            gameUI.game.restHere();
+        }
+
+        function useSkill(skillName) {
+            // Skill implementation would go here
+            gameUI.game.log(`🎯 Skill system coming soon!`, "special");
+        }
+
+        function showStatus() {
+            const state = gameUI.game.getGameState();
+            gameUI.game.log("📊 === HERO STATUS ===", "normal");
+            gameUI.game.log(`🏰 Floor: ${state.currentFloor}/100 in ${state.currentZone}`, "normal");
+            gameUI.game.log(`⭐ Level: ${state.player.level} ${state.player.class}`, "normal");
+            gameUI.game.log(`❤️ HP: ${state.player.hp}/${state.player.maxHp}`, "normal");
+            gameUI.game.log(`💙 MP: ${state.player.mp}/${state.player.maxMp}`, "normal");
+            gameUI.game.log(`⚡ Stamina: ${state.player.stamina}/${state.player.maxStamina}`, "normal");
+            gameUI.game.log(`💰 Wealth: ${state.player.gold} gold, ${state.player.gems} gems`, "normal");
+            gameUI.game.log(`🎯 Kill Streak: ${state.player.killStreak}`, "normal");
+        }
+
+        function openInventory() {
+            gameUI.game.log("🎒 === INVENTORY ===", "normal");
+            gameUI.game.log(`🧪 Potions: ${gameUI.game.player.inventory.potions}`, "normal");
+            gameUI.game.log(`🔵 Ethers: ${gameUI.game.player.inventory.ethers}`, "normal");
+            gameUI.game.log(`📜 Scrolls: ${gameUI.game.player.inventory.scrolls}`, "normal");
+            gameUI.game.log(`🗝️ Keys: ${gameUI.game.player.inventory.keys}`, "normal");
+        }
+
+        function openClassSelection() {
+            gameUI.game.log("🎭 Class system - Choose your path!", "special");
+            gameUI.game.log("🗡️ Warrior: High attack and defense", "normal");
+            gameUI.game.log("🔮 Mage: Powerful magic abilities", "normal");
+            gameUI.game.log("🗡️ Rogue: Speed and critical strikes", "normal");
+            gameUI.game.log("⚔️ Paladin: Balanced holy warrior", "normal");
+            gameUI.game.log("💀 Necromancer: Dark magic master", "normal");
+        }
+
+        function restartGame() {
+            if (confirm("Are you sure you want to start a new adventure?")) {
+                gameUI = new EnhancedDungeonRPGUI();
+            }
+        }
+
+        function saveGame() {
+            const state = gameUI.game.getGameState();
+            localStorage.setItem('enhancedDungeonRPGSave', JSON.stringify(state));
+            gameUI.game.log("💾 Game saved successfully!", "special");
+        }
+
+        function loadGame() {
+            const savedGame = localStorage.getItem('enhancedDungeonRPGSave');
+            if (savedGame) {
+                try {
+                    const state = JSON.parse(savedGame);
+                    Object.assign(gameUI.game.player, state.player);
+                    gameUI.game.currentFloor = state.currentFloor;
+                    gameUI.game.gameState = state.gameState;
+                    gameUI.game.log("📁 Game loaded successfully!", "special");
+                } catch (e) {
+                    gameUI.game.log("❌ Failed to load save file!", "combat");
+                }
+            } else {
+                gameUI.game.log("❌ No save file found!", "combat");
+            }
+        }
+
+        function loadLastSave() {
+            loadGame();
+        }
+
+        function toggleMusic() {
+            gameUI.game.musicPlaying = !gameUI.game.musicPlaying;
+            gameUI.game.log(`🎵 Music ${gameUI.game.musicPlaying ? 'enabled' : 'disabled'}!`, "normal");
+        }
+
+        function showHelp() {
+            gameUI.game.log("❓ === HELP GUIDE ===", "special");
+            gameUI.game.log("🚪 Explore floors to find monsters, treasures, and shops", "normal");
+            gameUI.game.log("⚔️ Combat: Attack, use magic, or special abilities", "normal");
+            gameUI.game.log("💎 Gems: Spend on special actions and upgrades", "normal");
+            gameUI.game.log("🏆 Achievements: Complete challenges for rewards", "normal");
+            gameUI.game.log("💾 Save: Your progress is automatically tracked", "normal");
+        }
+    </script>
+</body>
+</html>
